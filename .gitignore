@@ -1,0 +1,18 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+
+# Local player data and credentials
+SmokeData/
+SmokeResults/
+QuietMahjong/
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.log

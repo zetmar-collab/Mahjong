@@ -1,0 +1,69 @@
+MAHJONG SOLITAIRE — INSTRUKCJA DLA GRACZA
+
+URUCHOMIENIE
+Po instalacji wybierz Mahjong Solitaire w menu Start albo użyj skrótu na pulpicie.
+Gra działa bez internetu. Wszystkie potrzebne składniki są dołączone.
+
+ZASADY
+Zdejmuj dwie pasujące, wolne płytki. Płytka musi być odsłonięta od góry i mieć
+cały lewy albo prawy bok wolny. Samo odsłonięcie przodu lub tyłu nie wystarcza.
+W geometrii i naturze muszą zgadzać się symbol i numer. W zestawie klasycznym
+kwiat pasuje do kwiatu, pora roku do pory roku; kwiat nie pasuje do pory roku.
+Każdy początek ma rozwiązanie, ale dowolne wybory gracza nie gwarantują wygranej.
+
+STEROWANIE
+Mysz: wybierz dwie płytki. Ponowne kliknięcie tej samej odznacza ją.
+Strzałki: przechodzenie między płytkami. Enter / Spacja: wybór.
+H: podpowiedź. Esc: pauza. F11: pełny ekran. Tab: przyciski.
+Masz jedno przetasowanie na partię. Wznowienie zapisu nie odnawia limitu.
+
+WYNIKI I USTAWIENIA
+Po zwycięstwie wpisz opcjonalną nazwę gracza i kliknij Zapisz wynik.
+Historię otworzysz przez Zapisane wyniki. W ustawieniach możesz zmienić język,
+motyw, tło i dźwięki. Wybierz tło z pliku obsługuje PNG, JPG, BMP, GIF i TIFF;
+maksymalnie 32 MB i 80 megapikseli. Gra zachowuje własną kopię obrazu.
+Opcja Ogranicz animacje wyłącza konfetti po zwycięstwie.
+
+ZAPIS I AKTUALIZACJA
+Postęp jest zapisywany automatycznie. Dane są przechowywane w:
+%LOCALAPPDATA%\QuietMahjong
+Aktualizacja i odinstalowanie zachowują zapis, wyniki, ustawienia i własne tło.
+Aby wykonać kopię zapasową, zamknij grę i skopiuj cały ten katalog.
+
+ODINSTALOWANIE
+Ustawienia Windows → Aplikacje → Zainstalowane aplikacje → Mahjong Solitaire
+lub menu Start → Mahjong Solitaire → Odinstaluj Mahjong Solitaire.
+
+------------------------------------------------------------
+MAHJONG SOLITAIRE — PLAYER GUIDE
+
+LAUNCH
+Use Mahjong Solitaire in the Start menu or the desktop shortcut.
+No internet connection or separate runtime installation is required.
+
+RULES
+Remove two matching free tiles. A tile must have no tile covering it and have
+its entire left or right side open. An exposed front or back does not unlock it.
+Geometry and nature match by identical shape and number. In the classic set,
+flowers match flowers, seasons match seasons; a flower never matches a season.
+Every initial deal has a solution, but arbitrary choices may lead to a dead end.
+
+CONTROLS
+Mouse: choose two tiles; clicking the same tile again deselects it.
+Arrows: navigate tiles. Enter / Space: select. H: hint. Esc: pause.
+F11: full screen. Tab: buttons. One shuffle is available per game;
+resuming a save does not reset it.
+
+RESULTS AND SETTINGS
+After winning, enter an optional player name and choose Save result.
+Open Saved results to view your history. Settings includes language, theme,
+backgrounds, audio and reduced motion. Choose background image supports PNG,
+JPEG, BMP, GIF and TIFF up to 32 MB and 80 megapixels. A local copy is retained.
+
+SAVES, UPDATES AND REMOVAL
+Progress saves automatically to %LOCALAPPDATA%\QuietMahjong.
+Updates and uninstall preserve your game, results, settings and custom image.
+To make a backup, close the game and copy that entire directory.
+Uninstall through Windows Settings → Apps, or the Start menu uninstall shortcut.
+
+Copyright (c) 2026 Mahjong contributors. MIT license: LICENSE.

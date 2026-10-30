@@ -1,0 +1,24 @@
+name: Windows build and engine tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: '10.0.401'
+      - name: Run engine and persistence tests
+        run: dotnet run --project tests/Mahjong.Tests -c Release
+      - name: Build WPF desktop application
+        run: dotnet build src/Mahjong.App/Mahjong.App.csproj -c Release
