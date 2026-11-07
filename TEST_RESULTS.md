@@ -1,28 +1,15 @@
-# Wyniki weryfikacji — Mahjong 1.1.0 — 28.10.2026
+# Weryfikacja Mahjong Solitaire 1.2.1
 
-## Gotowe wydanie
+7 listopada 2026, Windows 11 x64, SDK .NET 10.0.401.
 
-EXE: artifacts/Mahjong-win-x64/Mahjong.exe. Wersja pliku 1.1.0.0, wersja produktu 1.1.0. Self-contained Windows x64, .NET 10.0.12. Własna ikona jest osadzona w EXE i oknie. Odczytano również ikonę z pliku wykonywalnego do artifacts/exe-icon-check.png.
+- 31 zestawów testów silnika i danych, 0 błędów; 378 pełnych rozwiązań w podstawowym liczniku oraz dodatkowe scenariusze wyzwań i kodów.
+- 521 kontroli WPF, wszystkie zaliczone — również z faktycznej instalacji.
+- 1693 kontrole instalacji PL, ponownej instalacji EN i odinstalowania, 0 błędów; zweryfikowano 417 plików według manifestu SHA-256 po obu instalacjach.
+- Kompilacja Release: 0 błędów i ostrzeżeń.
+- Dane rzeczywistego gracza nie zmieniły się podczas testów instalatora.
 
-## Wykonane sprawdzenia
+Raport szczegółowy: docs/releases/v1.2.1-ui.md. Poprzednie raporty 1.2.0 i 1.1.0 są historyczne.
 
-- Kompilacja projektu WPF Release: 0 błędów i 0 ostrzeżeń. Publikacja self-contained: sukces. Log: artifacts/update-publish.txt.
-- **20 zestawów testów silnika, 0 błędów; 378 pełnych rozwiązań odtworzonych przez Rules.Remove.** Log: artifacts/update-core-tests.txt. Starty obejmują 6 układów, 3 zestawy i 20 ustalonych seedów; dodatkowo 18 przetasowań.
-- Nowe testy wyników: zapis metadanych, polskie znaki, odczyt, brak duplikatów, odmowa zapisu niedokończonej gry, nieprawidłowe nazwy i liczby, sortowanie od najnowszego, zachowanie uszkodzonej historii bez nadpisania.
-- **459 sprawdzeń WPF, 0 błędów**, na końcowym EXE. Log: artifacts/update-ui-final-verified/ui-tests.txt.
-- Pełne partie sześciu układów, podpowiedzi, powtarzane kliknięcia, równoczesne żądania nowej gry i przetasowania, pauza, PL/EN i zachowanie limitu przetasowania po odczycie.
-- Sześć zapisanych ukończonych wyników, ponowny zapis bez duplikatu i historia zachowana po otwarciu nowej sesji.
-- Import PNG, JPEG, BMP, GIF i TIFF. Usunięcie źródła nie usuwa tła; ponowne otwarcie zachowuje lokalną kopię i wybór.
-- Błędny oraz większy niż 32 MB plik odrzucono bez zmiany obrazu i ustawienia. Brak zapisanej kopii daje komunikat i powrót do sukna. Filtr wyboru pliku: poprawny.
-- Animacja zwycięstwa występuje raz; zapis wyniku i przebudowa ekranu nie powtarzają jej. Ograniczenie animacji wyłącza konfetti.
-- Osadzona ikona okna wczytana poprawnie. Siedem WAV: nagłówki i wywołania odtwarzania.
+Logi lokalne: artifacts/installer-tests/471288b92f0f43db88f97122630ddb02/ oraz artifacts/ui-tests/.
 
-## Kontrola wyglądu
-
-39 obrazów WPF w artifacts/update-ui-final-verified/: gratulacje, historia PL/EN, własne tło i podgląd w ustawieniach, układy, tła, motywy i pomoc. Rasteryzacja 1280×720 i 1920×1080 przy 100%, 150%, 200%. Przejrzano gratulacje, historię i ustawienia oraz źródłową ikonę 256 px.
-
-## Granice wyników
-
-Windows 11 x64 build 26200, SDK 10.0.401. Brak osobnej próby na Windows 10. DPI sprawdzono przez rasteryzację WPF, bez zmiany systemowego skalowania i fizycznych monitorów. Nie obsługiwano ręcznie natywnego okna wyboru pliku; sprawdzono filtr i pełny import pięciu formatów. Nie potwierdzono odsłuchu na fizycznych głośnikach. Trudności nie kalibrowano badaniem z grupą graczy. EXE bez podpisu Authenticode. Raport opisuje testy lokalne sprzed publikacji; informacje o później dodanym instalatorze zawiera INSTALLER.md.
-
-Instrukcje: README.md.
+Nie wykonano osobnej próby Windows 10, fizycznego testu wielu monitorów, odsłuchu audio ani pełnego testu czytnika ekranu. Pomiary kontrastu dotyczą wskazanych par kolorów i nie są deklaracją pełnej zgodności z WCAG. EXE oraz setup pozostają bez podpisu cyfrowego.

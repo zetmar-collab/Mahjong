@@ -22,3 +22,5 @@ jobs:
         run: dotnet run --project tests/Mahjong.Tests -c Release
       - name: Build WPF desktop application
         run: dotnet build src/Mahjong.App/Mahjong.App.csproj -c Release
+      - name: Run WPF integration and regression tests
+        run: ./scripts/ui-test.ps1

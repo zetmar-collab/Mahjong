@@ -22,6 +22,10 @@ public sealed class GameState
     public double Seconds { get; set; }
     public int Hints { get; set; }
     public bool ShuffleUsed { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+    public int UndoCount { get; set; }
+    public List<RemovedPair> Moves { get; set; } = [];
+    public string? ChallengeDate { get; set; }
 }
 
 public static class Rules
@@ -118,10 +122,16 @@ public static class Catalog
 
 public static class Generator
 {
+    // Specified algorithm for reproducible version-1 daily challenges on future runtimes.
+    sealed class StableRandom(int seed)
+    {
+        uint value = unchecked((uint)seed) ^ 0xA341316Cu;
+        public int Next() { value += 0x9E3779B9u; uint z = value; z = (z ^ (z >> 16)) * 0x21F0AAADu; z = (z ^ (z >> 15)) * 0x735A2D97u; return (int)((z ^ (z >> 15)) & 0x7FFFFFFF); }
+    }
     public static List<Pair>? Sequence(List<Position> positions, int seed, int maxNodes = 100000, int milliseconds = 2500)
     {
         if (positions.Count % 2 != 0) return null;
-        var random = new Random(seed);
+        var random = new StableRandom(seed);
         var watch = Stopwatch.StartNew();
         int nodes = 0;
         HashSet<string> dead = [];
@@ -146,13 +156,14 @@ public static class Generator
         }
         return Search(positions.OrderBy(p => p.Id).ToList()) ? path : null;
     }
-    public static (Dictionary<int, Symbol> Tiles, List<Pair> Solution)? Assign(List<Position> positions, IEnumerable<Symbol> symbols, int seed)
+    public static (Dictionary<int, Symbol> Tiles, List<Pair> Solution)? Assign(List<Position> positions, IEnumerable<Symbol> symbols, int seed, int maxNodes = 100000, int milliseconds = 2500)
     {
         var deck = symbols.ToList();
         if (deck.Count != positions.Count || deck.GroupBy(s => s.Match).Any(g => g.Count() % 2 != 0)) return null;
-        var sequence = Sequence(positions, seed);
+        if (maxNodes < 0) throw new ArgumentOutOfRangeException(nameof(maxNodes));
+        var sequence = Sequence(positions, seed, maxNodes, milliseconds);
         if (sequence == null) return null;
-        var random = new Random(seed ^ 0x539);
+        var random = new StableRandom(seed ^ 0x539);
         var pairs = deck.GroupBy(s => s.Match).SelectMany(g => g.OrderBy(_ => random.Next()).Chunk(2)).OrderBy(_ => random.Next()).ToArray();
         Dictionary<int, Symbol> tiles = [];
         for (int i = 0; i < sequence.Count; i++)
@@ -173,15 +184,17 @@ public static class Generator
     }
     public static bool Shuffle(GameState state, int seed, int maxNodes = 100000)
     {
+        if (maxNodes < 0) throw new ArgumentOutOfRangeException(nameof(maxNodes));
         if (state.ShuffleUsed || state.Tiles.Count == 0) return false;
         var active = Rules.Active(state);
         // A failed construction is transactional: no field of state has been changed.
         if (maxNodes == 0) return false;
-        var result = Assign(active, state.Tiles.Values, seed);
+        var result = Assign(active, state.Tiles.Values, seed, maxNodes);
         if (result == null) return false;
         state.Tiles = result.Value.Tiles;
         state.Solution = result.Value.Solution;
         state.ShuffleUsed = true;
+        state.Moves.Clear(); // Undo never crosses a shuffle boundary or restores its allowance.
         return true;
     }
     public static bool Replay(GameState state, IEnumerable<Pair> solution)
@@ -202,28 +215,45 @@ public sealed class Preferences
     public double Volume { get; set; } = .35;
     public bool ReducedMotion { get; set; }
     public bool Labels { get; set; } = true;
+    public double Zoom { get; set; } = 1;
 }
 
 public static class Storage
 {
+    public static string ReadBounded(string path, long limit = 4 * 1024 * 1024)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stream.Length > limit) throw new InvalidDataException("Data file exceeds the size limit.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
     public static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     public static void Atomic<T>(string path, T value)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        string temp = path + ".tmp";
-        using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+        string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
         {
-            JsonSerializer.Serialize(stream, value, Json); stream.Flush(true);
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                JsonSerializer.Serialize(stream, value, Json); stream.Flush(true);
+            }
+            File.Move(temp, path, true);
         }
-        File.Move(temp, path, true);
+        finally { if (File.Exists(temp)) File.Delete(temp); }
     }
     public static bool Load(string path, IReadOnlyList<Layout> layouts, out GameState? state)
     {
         state = null;
+        try { return Validate(JsonSerializer.Deserialize<GameState>(ReadBounded(path), Json), layouts, out state); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return false; }
+    }
+    public static bool Validate(GameState? s, IReadOnlyList<Layout> layouts, out GameState? state)
+    {
+        state = null;
         try
         {
-            var s = JsonSerializer.Deserialize<GameState>(File.ReadAllText(path), Json);
-            if (s == null || s.Version != 1 || s.GameId == Guid.Empty || !Catalog.Sets.Contains(s.SetId) || !double.IsFinite(s.Seconds) || s.Seconds < 0 || s.Hints < 0) return false;
+            if (s == null || s.Version != 1 || s.GameId == Guid.Empty || !Catalog.Sets.Contains(s.SetId) || !GameTime.Valid(s.Seconds) || s.Hints < 0 || s.UndoCount < 0) return false;
             var layout = layouts.SingleOrDefault(l => l.Id == s.LayoutId);
             if (layout == null || !s.Positions.SequenceEqual(layout.Positions)) return false;
             Rules.Validate(new(s.LayoutId, s.Positions.Count, s.Positions));
@@ -237,6 +267,9 @@ public static class Storage
             if (s.Tiles.Values.GroupBy(x => x.Id).Any(g => !deck.TryGetValue(g.Key, out int count) || g.Count() > count)) return false;
             if (!s.ShuffleUsed && s.Tiles.Any(p => s.Initial[p.Key] != p.Value)) return false;
             if (!Generator.Replay(new GameState { Positions = s.Positions, Tiles = new(s.Initial) }, s.InitialSolution)) return false;
+            if (!GameActions.ValidHistory(s)) return false;
+            if (s.CompletedAt is { } completed && (completed == default || s.Tiles.Count != 0)) return false;
+            if (!GameTime.ValidDate(s.ChallengeDate)) return false;
             state = s;
             return true;
         }

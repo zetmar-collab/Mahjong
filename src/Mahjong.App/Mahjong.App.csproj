@@ -8,10 +8,11 @@
     <AssemblyName>Mahjong</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\assets\mahjong.ico</ApplicationIcon>
-    <Version>1.1.0</Version>
+    <Version>1.2.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mahjong.Core\Mahjong.Core.csproj" />
+    <Resource Include="..\..\assets\mahjong-icon.png"><Link>Assets\mahjong-icon.png</Link></Resource>
     <Resource Include="..\..\assets\mahjong.ico"><Link>Assets\mahjong.ico</Link></Resource>
     <Content Include="..\..\assets\**\*.json"><Link>Assets\%(RecursiveDir)%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="..\..\assets\**\*.wav"><Link>Assets\%(RecursiveDir)%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

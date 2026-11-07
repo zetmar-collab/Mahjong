@@ -120,7 +120,7 @@ public static class BackgroundArt
     {
         if (Cache.TryGetValue(id, out var cached)) return cached;
         var palette = id switch { "wood" => new[] { "#785437", "#4A3428" }, "forest" => new[] { "#3B6255", "#102F2A" }, "paper" => new[] { "#E5DCC5", "#C3B99F" }, "minimal" => new[] { "#252D32", "#141C22" }, _ => new[] { "#346D5C", "#184A3E" } };
-        var group = new DrawingGroup();
+        var group = new DrawingGroup { ClipGeometry = new RectangleGeometry(new Rect(0, 0, 1000, 700)) };
         using(var d = group.Open())
         {
             d.DrawRectangle(new LinearGradientBrush(Color(palette[0]),Color(palette[1]),65),null,new(0,0,1000,700));

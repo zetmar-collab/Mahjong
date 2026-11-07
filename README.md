@@ -4,15 +4,42 @@ Spokojna, jednoosobowa gra offline dla Windows x64. C# / WPF / .NET 10. Bez rekl
 
 ## Pobierz grę
 
-**[Instalator Windows x64 — Setup.exe](https://github.com/zetmar-collab/Mahjong/releases/download/v1.1.0/Mahjong-Solitaire-1.1.0-Setup-x64.exe)** · **[Wersja przenośna ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.1.0/Mahjong-win-x64.zip)** · **[Wszystkie wydania](https://github.com/zetmar-collab/Mahjong/releases)**
+**[Instalator Windows x64 — Setup.exe](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.1/Mahjong-Solitaire-1.2.1-Setup-x64.exe)** · **[Wersja przenośna ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.1/Mahjong-win-x64.zip)** · **[Wszystkie wydania](https://github.com/zetmar-collab/Mahjong/releases)**
 
 Instalator zawiera wszystkie zasoby oraz .NET. Działa offline i nie wymaga administratora. Po instalacji uruchom grę z menu Start. Wersję przenośną rozpakuj w całości i uruchom Mahjong.exe. Wydanie nie jest podpisane cyfrowo. Testy wykonano na Windows 11 x64; osobnego uruchomienia na Windows 10 nie weryfikowano.
+
+![Menu Mahjong Solitaire 1.2.1](docs/screenshots/menu.png)
 
 ![Plansza Mahjong Solitaire](docs/screenshots/game.png)
 
 ![Gratulacje i zapis wyniku](docs/screenshots/victory.png)
 
-**English:** Download the [Windows installer](https://github.com/zetmar-collab/Mahjong/releases/download/v1.1.0/Mahjong-Solitaire-1.1.0-Setup-x64.exe) or the [portable ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.1.0/Mahjong-win-x64.zip). The runtime is bundled and the game works offline. Use PL / EN at the top to switch languages. No administrator account is required. This release is unsigned and was tested on Windows 11 x64.
+**English:** Download the [Windows installer](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.1/Mahjong-Solitaire-1.2.1-Setup-x64.exe) or the [portable ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.1/Mahjong-win-x64.zip). The runtime is bundled and the game works offline. Use PL / EN at the top to switch languages. No administrator account is required. This release is unsigned and was tested on Windows 11 x64.
+
+## Wersja 1.2.1 — poprawiony wygląd
+
+Nowe menu, spójne kontrolki wszystkich motywów, karty ustawień, opisane filtry, wyraźne zaznaczenia i przyciski nowej gry zawsze widoczne nad stopką. Zachowano zasady i zapis. Weryfikacja: **521 kontroli WPF** oraz **31 zestawów silnika**. Szczegóły: [raport UI](docs/releases/v1.2.1-ui.md).
+
+Aktualne publiczne wydanie: **[1.2.1](https://github.com/zetmar-collab/Mahjong/releases/tag/v1.2.1)**. Instalator zawiera grę i środowisko .NET; ZIP jest wersją przenośną.
+
+## Wersja 1.2.0 — poprawki i rozwój
+
+Wersja 1.2 wprowadziła poniższe poprawki i funkcje. Wszystkie są zawarte w aktualnym wydaniu 1.2.1.
+
+- **Cofnij / Ctrl+Z:** przywraca ostatnią parę podczas aktywnej gry. Czas, podpowiedzi i liczba cofnięć zostają zachowane. Udane przetasowanie usuwa wcześniejszą historię cofania. Po zwycięstwie cofanie jest wyłączone.
+- **Automatyczny wynik:** zwycięstwo od razu trafia do historii z chwilą ukończenia. Opcjonalną nazwę można uzupełnić raz na ekranie zwycięstwa, również po ponownym otwarciu gry. Starsze ukończone zapisy bez daty używają chwili pierwszego zapisu wyniku jako wartości zastępczej.
+- **Historia i rekordy:** filtry układu, zestawu, gry z pomocą/bez pomocy i wyzwań; sortowanie według czasu lub daty. Rekord dotyczy tego samego układu, zestawu i kategorii pomocy. Podpowiedź, przetasowanie i cofnięcie oznaczają pomoc.
+- **Powiększanie:** przyciski −, Dopasuj, + ustawiają 100–300% dopasowanego rozmiaru. Powiększoną planszę przewija się paskami; klawiatura nadal wybiera płytki.
+- **Samouczek:** Jak grać → Samouczek. Trzy osobne ćwiczenia boków, warstw oraz kwiatów i pór roku nie zmieniają zapisu partii.
+- **Wyzwanie dnia:** na ekranie nowej gry. Stały Żółw / Klasyczny, wspólny rozkład dla lokalnej daty kalendarzowej i algorytmu Daily v1. Wersja generatora używa jawnego PRNG i limitu węzłów bez zależnego od zegara wariantu zapasowego. Nie ma rankingu sieciowego.
+- **Kod partii:** przycisk na planszy pokazuje kod MJ1 początkowego rozkładu. Skopiuj go i wklej na ekranie nowej gry. Kod zawiera symbole i rozwiązanie kontrolne, bez nazwy i postępu; dlatego jest dłuższy od samego seeda i działa niezależnie od późniejszych zmian generatora. Rozpoczęcie z kodu tworzy osobną partię; nie przypisuje jej do wyników wyzwania dnia.
+- **Kopie danych:** w ustawieniach eksport/import pliku `.mahjongbackup` (ZIP z manifestem SHA-256). Obejmuje game.json, settings.json, results.json i background.png, jeśli istnieją. Import dopuszcza wyłącznie te nazwy, sprawdza zawartość przed zastąpieniem i zachowuje poprzednie pliki w `%LOCALAPPDATA%/QuietMahjong/Backups/<identyfikator>/previous`. Pliki nieobecne w kopii pozostawiają dotychczasowe dane; historia obecna w kopii zastępuje historię docelową, nie scala jej. Nie importuje się plików wykonywalnych.
+
+Jedna instancja aplikacji ma wyłączną blokadę katalogu danych; drugi start sygnalizuje istniejące okno i kończy działanie przed odczytem/zapisem. Blokada zwalnia się także po zakończeniu procesu. Zapisy partii i ustawień korzystają z kolejki niezmiennych kopii w tle, opróżnianej przed zamknięciem oraz eksportem/importem.
+
+Limity odczytu: partia 4 MiB, ustawienia 64 KiB, wyniki 16 MiB i 20 000 wpisów, obraz 32 MiB / 80 MP, kopia 54 MiB. Gra nie usuwa automatycznie historii po osiągnięciu limitu. Licznik obsługuje godziny ponad dobę; maksymalny dopuszczalny czas to 100 × 365 dni. Log diagnostics.log zawiera czas, rodzaj operacji i nazwę typu wyjątku, bez nazw graczy i ścieżek; jest resetowany po przekroczeniu 64 KiB.
+
+**English:** Version 1.2 adds undo, automatic victory records with optional names, filters and separate assisted/unassisted best times, backup export/import, board zoom, an interactive tutorial, offline daily challenges and complete MJ1 deal codes. Existing version-one saves and legacy results remain readable. All these features are included in public release 1.2.1 linked above.
 
 ## Nowości w wersji 1.1
 
@@ -25,13 +52,13 @@ Dodatkowe lokalne pliki w **%LOCALAPPDATA%/QuietMahjong/**: **results.json** (hi
 
 ## Instalator dla użytkownika końcowego
 
-Uruchom **artifacts/installer/Mahjong-Solitaire-1.1.0-Setup-x64.exe**. Jest to jeden plik zawierający grę, wszystkie zasoby i .NET. Instalacja działa offline, bez uprawnień administratora. Kreator PL/EN tworzy skróty w menu Start, opcjonalny skrót na pulpicie i deinstalator. Aktualizacja i odinstalowanie zachowują dane gracza. Szczegóły, budowanie i wyniki testów: **INSTALLER.md**.
+Uruchom **artifacts/installer/Mahjong-Solitaire-1.2.1-Setup-x64.exe**. Jest to jeden plik zawierający grę, wszystkie zasoby i .NET. Instalacja działa offline, bez uprawnień administratora. Kreator PL/EN tworzy skróty w menu Start, opcjonalny skrót na pulpicie i deinstalator. Aktualizacja i odinstalowanie zachowują dane gracza. Szczegóły, budowanie i wyniki testów: **INSTALLER.md**.
 
 ## Uruchomienie gotowej gry
 
 W folderze wydania uruchom **Mahjong.exe**. W projekcie znajdziesz go pod **artifacts/Mahjong-win-x64/Mahjong.exe**. Cały folder jest przenośny: kopiuj go w całości, razem z Assets i bibliotekami. Wydanie self-contained zawiera runtime i nie wymaga instalowania .NET. Archiwum: **artifacts/Mahjong-win-x64.zip**.
 
-Nie trzeba uprawnień administratora. Jeżeli jest jeszcze otwarta wcześniejsza wersja testowa, zamknij ją przed uruchomieniem wydania, aby dwie instancje nie zapisywały tej samej partii.
+Nie trzeba uprawnień administratora. Wersja 1.2 chroni dane przed drugim równoczesnym uruchomieniem. Wcześniejsze wydania 1.1 nie znają tej blokady: zamknij starą wersję przed uruchomieniem nowej.
 
 ## Co zawiera gra
 
@@ -41,7 +68,7 @@ Nie trzeba uprawnień administratora. Jeżeli jest jeszcze otwarta wcześniejsza
 - Wolny bok i brak przykrycia są sprawdzane geometrycznie, również przy przesunięciu o pół płytki. Odsłonięta góra lub dół nie odblokowuje boku.
 - Podpowiedź podświetla dwie legalne płytki i przechodzi cyklicznie przez dostępne kombinacje. Nie obiecuje bezpiecznej kontynuacji.
 - Jedno przetasowanie na partię. Zachowuje dokładnie pozostałe symbole, pozycje, czas i liczniki; zatwierdzane tylko z pełnym rozwiązaniem. Niepowodzenie nie zużywa limitu.
-- Zapis po ruchu, podpowiedzi, przetasowaniu i wyjściu; wznowienie, pauza z zakryciem planszy, zwycięstwo, brak ruchów i ponowna gra.
+- Zapis po ruchu, cofnięciu, podpowiedzi, przetasowaniu i wyjściu; wznowienie, pauza z zakryciem planszy, zwycięstwo, brak ruchów i ponowna gra.
 - Polski i angielski przełączane w czasie gry. Poprawna odmiana liczb, w tym 12–14 i 22–24.
 - Pięć niezależnych teł: sukno, drewno, las, papier, minimalizm. Trzy motywy UI: ciemny, jasny, wysoki kontrast.
 - Siedem lokalnych efektów WAV, wyciszenie i głośność; awaria urządzenia audio nie przerywa gry.
@@ -173,7 +200,7 @@ Tryb testowy używa osobnego katalogu SmokeData obok EXE; nie dotyka zwykłego z
 - Trudności są etykietami projektowymi wynikającymi z geometrii. Zweryfikowano możliwość pełnego przejścia, ale nie przeprowadzono badania trudności z grupą graczy.
 - Zestaw klasyczny używa własnych uproszczonych symboli; oznaczenia pomocnicze można wyłączyć. Nie jest to replika historycznego kompletu konkretnego producenta.
 - Pliki dźwiękowe zostały sprawdzone i uruchomiono ścieżkę odtwarzania. Odsłuch na fizycznych głośnikach i urządzeniach bez audio wymaga sprawdzenia na komputerze gracza.
-- Dostępne są instalator EXE oraz folder przenośny i ZIP. EXE nie ma podpisu Authenticode. Nie opublikowano plików do zewnętrznej usługi.
+- Dostępne są instalator EXE oraz folder przenośny i ZIP. EXE nie ma podpisu Authenticode. Aktualne publiczne wydanie na GitHubie ma numer 1.2.1.
 
 ### Ręczna lista kontrolna na innym komputerze
 

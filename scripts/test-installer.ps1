@@ -78,7 +78,7 @@ try {
         if (!$gameProcess.WaitForExit(180000)) { throw 'Installed game test timed out.' }
         Assert-Check ($gameProcess.ExitCode -eq 0) 'Installed self-contained game exits full WPF suite successfully'
         $gameLog = Get-Content -LiteralPath (Join-Path $gameOutput 'ui-tests.txt') -Raw
-        Assert-Check ($gameLog -match 'RESULT: 459 WPF checks passed\.') 'All 459 WPF checks pass from installed location'
+        Assert-Check ($gameLog -match 'RESULT: ([0-9]+) WPF checks passed\.' -and [int]$Matches[1] -ge 521) 'All WPF regression checks pass from installed location'
         Assert-Check ((Snapshot-Data) -eq $initialData) 'Game tests did not change real player files'
     }
 } catch {

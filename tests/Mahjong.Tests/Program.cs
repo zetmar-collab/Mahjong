@@ -2,6 +2,11 @@ using System.Diagnostics;
 using System.Text.Json;
 using Mahjong.Core;
 
+if (args.Length == 2 && args[0] == "--lease-probe")
+{
+    using var lease = InstanceLease.TryAcquire(args[1]); Environment.ExitCode = lease == null ? 42 : 0; return;
+}
+
 int passed=0, failed=0, solutions=0;
 var watch=Stopwatch.StartNew();
 string assets=Path.Combine(AppContext.BaseDirectory,"Assets");
@@ -114,5 +119,83 @@ Test("Result history rejects invalid entries and sorts newest first",()=>{
  Storage.Atomic(file,entries);bool refused=false;try{ResultStore.Load(file);}catch(InvalidDataException){refused=true;}Check(refused);}
  }finally{File.Delete(file);}
 });
+Test("Bounded data reads, overflow time and total-hour formatting",()=>{
+ string dir=Path.Combine(Path.GetTempPath(),"MahjongBounds-"+Guid.NewGuid());Directory.CreateDirectory(dir);string path=Path.Combine(dir,"game.json");
+ try {var game=Generator.New(layouts[0],"geometry",9);game.Seconds=1e100;Storage.Atomic(path,game);Check(!Storage.Load(path,layouts,out _));
+ game.Seconds=GameTime.MaxSeconds;Storage.Atomic(path,game);Check(Storage.Load(path,layouts,out _));Check(GameTime.Format(90061)=="25:01:01");Check(GameTime.Format(1e100)=="--:--:--");
+ File.WriteAllText(path,new string('x',100));bool refused=false;try{Storage.ReadBounded(path,99);}catch(InvalidDataException){refused=true;}Check(refused);
+ }finally{Directory.Delete(dir,true);}
+});
+Test("Positive solver budget is honored and negative budget is rejected transactionally",()=>{
+ var game=Generator.New(layouts[3],"classic",61);string before=JsonSerializer.Serialize(game);
+ Check(!Generator.Shuffle(game,62,1));Check(JsonSerializer.Serialize(game)==before);
+ bool rejected=false;try{Generator.Shuffle(game,62,-1);}catch(ArgumentOutOfRangeException){rejected=true;}
+ Check(rejected && JsonSerializer.Serialize(game)==before);
+});
+Test("Single data owner across processes and recovery after release",()=>{
+ string dir=Path.Combine(Path.GetTempPath(),"MahjongLease-"+Guid.NewGuid());
+ int Child(){var start=new ProcessStartInfo(Environment.ProcessPath!){UseShellExecute=false,CreateNoWindow=true};start.ArgumentList.Add("--lease-probe");start.ArgumentList.Add(dir);using var process=Process.Start(start)!;Check(process.WaitForExit(10000));return process.ExitCode;}
+ try {using(var lease=InstanceLease.TryAcquire(dir)){Check(lease!=null);Check(Child()==42);}Check(Child()==0);}
+ finally{Directory.Delete(dir,true);}
+});
+Test("Undo persists, preserves counters and cannot cross shuffle or victory",()=>{
+ var game=Generator.New(layouts[0],"classic",64);var original=JsonSerializer.Serialize(game.Tiles);var pair=game.Solution[0];
+ Check(GameActions.Remove(game,pair.A,pair.B));game.Seconds=90061;game.Hints=3;Check(GameActions.ValidHistory(game));
+ var loaded=Clone(game);Check(Storage.Validate(loaded,layouts,out _));Check(GameActions.Undo(loaded));
+ Check(loaded.Tiles.Count==36 && loaded.Tiles.All(t=>game.Initial[t.Key]==t.Value));Check(loaded.UndoCount==1 && loaded.Hints==3 && loaded.Seconds==90061 && !loaded.ShuffleUsed);
+ Check(!GameActions.Undo(loaded));Check(Generator.Shuffle(game,65));Check(game.Moves.Count==0 && !GameActions.Undo(game) && game.ShuffleUsed);
+ var next=game.Solution[0];Check(GameActions.Remove(game,next.A,next.B));Check(GameActions.Undo(game) && game.ShuffleUsed);
+ foreach(var p in game.Solution)Check(GameActions.Remove(game,p.A,p.B));Check(game.CompletedAt!=null && !GameActions.Undo(game));
+ var corrupt=Clone(loaded);corrupt.Moves.Add(new(0,corrupt.Initial[0],1,corrupt.Initial[1]));Check(!Storage.Validate(corrupt,layouts,out _));
+});
+Test("Automatic result can be named once, retains finish date and assistance",()=>{
+ string dir=Path.Combine(Path.GetTempPath(),"MahjongAuto-"+Guid.NewGuid());string path=Path.Combine(dir,"results.json");
+ try{var game=Generator.New(layouts[0],"geometry",11);foreach(var p in game.Solution)Check(GameActions.Remove(game,p.A,p.B));
+ game.CompletedAt=DateTimeOffset.UtcNow.AddDays(-1);game.UndoCount=2;
+ var auto=ResultStore.SaveFinished(path,game,"",automatic:true);Check(!auto.NameConfirmed && auto.FinishedAt==game.CompletedAt && auto.UndoCount==2);
+ var named=ResultStore.SaveFinished(path,game,"Hanna");Check(named.NameConfirmed && named.Player=="Hanna" && named.FinishedAt==auto.FinishedAt);Check(ResultStore.Load(path).Count==1);
+ Check(ResultStore.SaveFinished(path,game,"Other")==named);Check(ResultStore.SaveFinished(path,game,"",automatic:true)==named);
+ }finally{Directory.Delete(dir,true);}
+});
+Test("Old version-one saves and legacy result entries remain compatible",()=>{
+ var game=Generator.New(layouts[0],"nature",15);var node=System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(game))!;
+ foreach(var key in new[]{"CompletedAt","UndoCount","Moves","ChallengeDate"})node.AsObject().Remove(key);
+ Check(Storage.Validate(JsonSerializer.Deserialize<GameState>(node.ToJsonString()),layouts,out var loaded));Check(loaded!.UndoCount==0 && loaded.Moves.Count==0);
+ var json="{\"GameId\":\""+Guid.NewGuid()+"\",\"Player\":\"Old\",\"FinishedAt\":\"2026-10-29T00:00:00Z\",\"LayoutId\":\"glade\",\"SetId\":\"geometry\",\"TileCount\":36,\"Seconds\":12,\"Hints\":0,\"ShuffleUsed\":false,\"Seed\":1}";
+ var result=JsonSerializer.Deserialize<GameResult>(json)!;Check(result.NameConfirmed && result.UndoCount==0);
+});
+Test("Deal codes preserve every original symbol and reject altered payloads",()=>{
+ foreach(var l in layouts)foreach(var set in Catalog.Sets){var game=Generator.New(l,set,216);var code=DealCode.Encode(game);var decoded=DealCode.Decode(code,layouts);
+ Check(code.Length<1024 && decoded.GameId!=game.GameId && decoded.Initial.OrderBy(t=>t.Key).SequenceEqual(game.Initial.OrderBy(t=>t.Key)));Check(Generator.Replay(decoded,decoded.Solution));
+ var shuffled=Clone(game);Check(Generator.Shuffle(shuffled,217));Check(DealCode.Encode(shuffled)==code);
+ bool refused=false;try{DealCode.Decode(code[..8]+(code[8]=='A'?'B':'A')+code[9..],layouts);}catch(InvalidDataException){refused=true;}Check(refused);}
+ foreach(string bad in new[]{"","MJ2-abcd","MJ1-!", "MJ1-"+new string('a',1025)}){bool refused=false;try{DealCode.Decode(bad,layouts);}catch(InvalidDataException){refused=true;}Check(refused);}
+});
+Test("Daily challenge is date-specific, deterministic and fully solvable",()=>{
+ string? previous=null;foreach(int offset in Enumerable.Range(0,31)){var day=new DateOnly(2026,11,1).AddDays(offset);var a=DealCode.Daily(day,layouts);var b=DealCode.Daily(day,layouts);
+ var code=DealCode.Encode(a);Check(code==DealCode.Encode(b) && code!=previous);Check(a.ChallengeDate==day.ToString("yyyy-MM-dd") && Generator.Replay(a,a.Solution));previous=code;}
+});
+Test("History filters keep assisted, unassisted and challenge records separate",()=>{
+ var a=new GameResult(Guid.NewGuid(),"A",DateTimeOffset.UtcNow,"glade","geometry",36,20,0,false,1);
+ var b=a with{GameId=Guid.NewGuid(),Seconds=10,UndoCount=1};var c=a with{GameId=Guid.NewGuid(),LayoutId="turtle",TileCount=144,Seconds=5,ChallengeDate="2026-11-07"};
+ var rows=new[]{a,b,c};Check(ResultQuery.Filter(rows,"glade","geometry","unassisted").Single()==a);Check(ResultQuery.Filter(rows,help:"assisted").Single()==b);
+ Check(ResultQuery.Filter(rows,order:"fastest").First()==c);Check(ResultQuery.Filter(rows,daily:true).Single()==c);
+});
+Test("Backup round-trip preserves data and retains pre-import files",()=>{
+ string dir=Path.Combine(Path.GetTempPath(),"MahjongBackup-"+Guid.NewGuid());string source=Path.Combine(dir,"source"),target=Path.Combine(dir,"target"),archive=Path.Combine(dir,"copy.mahjongbackup");Directory.CreateDirectory(source);Directory.CreateDirectory(target);
+ try{var game=Generator.New(layouts[0],"classic",31);var p=game.Solution[0];GameActions.Remove(game,p.A,p.B);Storage.Atomic(Path.Combine(source,"game.json"),game);Storage.Atomic(Path.Combine(source,"settings.json"),new Preferences());
+ File.WriteAllText(Path.Combine(target,"game.json"),"previous data");BackupService.Export(source,archive);string previous=BackupService.Import(archive,target,layouts,_=>throw new Exception("No image expected"));
+ Check(File.ReadAllText(Path.Combine(previous,"game.json"))=="previous data");Check(Storage.Load(Path.Combine(target,"game.json"),layouts,out var loaded) && loaded!.GameId==game.GameId && loaded.Moves.Count==1);
+ }finally{Directory.Delete(dir,true);}
+});
+Test("Backup rejects path traversal, checksum damage and invalid saves before replacement",()=>{
+ string dir=Path.Combine(Path.GetTempPath(),"MahjongBadBackup-"+Guid.NewGuid());Directory.CreateDirectory(dir);string target=Path.Combine(dir,"data");Directory.CreateDirectory(target);string sentinel=Path.Combine(target,"settings.json");File.WriteAllText(sentinel,"unchanged");
+ try{foreach(string entryName in new[]{"../outside.json","game.json"}){string zipPath=Path.Combine(dir,Guid.NewGuid()+".zip");using(var zip=System.IO.Compression.ZipFile.Open(zipPath,System.IO.Compression.ZipArchiveMode.Create)){
+ using(var writer=new StreamWriter(zip.CreateEntry("manifest.json").Open()))writer.Write(JsonSerializer.Serialize(new{Version=1,Hashes=new Dictionary<string,string>{{entryName,"BAD"}}}));
+ using(var writer=new StreamWriter(zip.CreateEntry(entryName).Open()))writer.Write("bad");}
+ bool refused=false;try{BackupService.Import(zipPath,target,layouts,_=>{});}catch(InvalidDataException){refused=true;}Check(refused && File.ReadAllText(sentinel)=="unchanged");Check(!File.Exists(Path.Combine(target,"outside.json")));}
+ }finally{Directory.Delete(dir,true);}
+});
+
 Console.WriteLine($"RESULT: {passed} suites passed, {failed} failed, {solutions} full solutions replayed, {watch.Elapsed.TotalSeconds:F2}s");
 Environment.ExitCode=failed==0?0:1;

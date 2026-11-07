@@ -27,7 +27,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public string ResultsPath => Path.Combine(DataDirectory, "results.json");
     public List<GameResult> Results { get; private set; } = [];
     public CustomBackground CustomBackground { get; }
-    public bool ResultSaved => Game != null && Results.Any(r => r.GameId == Game.GameId);
+    public bool ResultSaved => Game != null && Results.Any(r => r.GameId == Game.GameId && r.NameConfirmed);
     public bool CanSaveResult => Game?.Tiles.Count == 0 && !ResultSaved;
     public Preferences Preferences { get; }
     public Localizer Text { get; }
@@ -42,7 +42,8 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public bool Playing => Screen == "game" && Game != null && !Paused && !Busy && Game.Tiles.Count > 0;
     public string Status { get; private set; } = "";
     string statusKey = "ready";
-    public string Clock => TimeSpan.FromSeconds(Game?.Seconds ?? 0).ToString(@"hh\:mm\:ss");
+    public string Clock => GameTime.Format(Game?.Seconds ?? 0);
+    public bool CanStart => !Busy;
     public string Remaining => Text.Number(Game?.Tiles.Count ?? 0, "tile");
     public string PairCount => Text.Number(Game == null ? 0 : Rules.Pairs(Game).Count, "pair");
     public string HintCount => (Game?.Hints ?? 0).ToString();
@@ -50,19 +51,24 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public string HintLabel => Text["hint"] + "   H";
     public string PauseLabel => Text[Paused ? "resume" : "pause"];
     public bool CanShuffle => Playing && Game?.ShuffleUsed == false;
+    public bool CanUndo => Playing && Game!.Moves.Count > 0;
     int hintIndex;
     readonly Stopwatch clock = Stopwatch.StartNew();
     long lastTick;
     readonly MediaPlayer player = new();
+    readonly SaveQueue writes;
     public ICommand HintCommand { get; }
     public ICommand ShuffleCommand { get; }
     public ICommand PauseCommand { get; }
+    public ICommand UndoCommand { get; }
     public GameViewModel(string? dataDirectory = null)
     {
+        var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        writes = new(ex => { Log("save", ex); dispatcher.BeginInvoke(new Action(() => SetStatus("saveError"))); });
         DataDirectory = dataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuietMahjong");
         CustomBackground = new(DataDirectory);
         Layouts = Catalog.LoadLayouts(Path.Combine(AssetDirectory, "layouts.json"));
-        try { Preferences = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(DataDirectory, "settings.json")), Storage.Json) ?? new(); }
+        try { Preferences = JsonSerializer.Deserialize<Preferences>(Storage.ReadBounded(Path.Combine(DataDirectory, "settings.json"), 65536), Storage.Json) ?? new(); }
         catch { Preferences = new(); }
         if (Preferences.Language is not ("pl" or "en")) Preferences.Language = "en";
         if (Preferences.Theme is not ("dark" or "light" or "contrast")) Preferences.Theme = "dark";
@@ -70,6 +76,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
         if (!Catalog.Sets.Contains(Preferences.Set)) Preferences.Set = "geometry";
         if (!Layouts.Any(l => l.Id == Preferences.Layout)) Preferences.Layout = "turtle";
         Preferences.Volume = double.IsFinite(Preferences.Volume) ? Math.Clamp(Preferences.Volume, 0, 1) : .35;
+        Preferences.Zoom = double.IsFinite(Preferences.Zoom) ? Math.Clamp(Preferences.Zoom, 1, 3) : 1;
         Text = new(AssetDirectory, Preferences.Language);
         if (!CustomBackground.Load() && Preferences.Background == "custom")
         {
@@ -84,18 +91,21 @@ public sealed class GameViewModel : INotifyPropertyChanged
         HintCommand = new RelayCommand(Hint, () => Playing);
         ShuffleCommand = new RelayCommand(async () => await Shuffle(), () => CanShuffle);
         PauseCommand = new RelayCommand(TogglePause, () => Screen == "game" && Game != null && !Busy);
+        UndoCommand = new RelayCommand(Undo, () => CanUndo);
+        if (Game?.Tiles.Count == 0) RecordVictory();
         player.MediaFailed += (_, _) => { };
     }
     public void Notify([CallerMemberName] string? property = null) => PropertyChanged?.Invoke(this, new(property));
     public void Refresh()
     {
+        Notify(nameof(CanStart));
         foreach (var key in new[] { nameof(Clock), nameof(Remaining), nameof(PairCount), nameof(HintCount), nameof(ShuffleLabel), nameof(HintLabel), nameof(PauseLabel), nameof(Status), nameof(HasSave), nameof(CanShuffle) }) Notify(key);
         CommandManager.InvalidateRequerySuggested();
     }
     public void Tick()
     {
         long now = clock.ElapsedMilliseconds;
-        if (Playing) Game!.Seconds += (now - lastTick) / 1000.0;
+        if (Playing) Game!.Seconds = Math.Min(GameTime.MaxSeconds, Game.Seconds + (now - lastTick) / 1000.0);
         lastTick = now;
         Notify(nameof(Clock));
     }
@@ -109,18 +119,20 @@ public sealed class GameViewModel : INotifyPropertyChanged
         ScreenChanged?.Invoke(); Refresh();
         if (screen == "game") BoardChanged?.Invoke();
     }
-    public async Task NewGame(bool replay = false)
+    public async Task NewGame(bool replay = false, string? dealCode = null, DateOnly? daily = null)
     {
         if (Busy) return;
         Busy = true; SetStatus("working"); Refresh();
         try
         {
             GameState next;
-            if (replay && Game != null)
+            if (dealCode != null) next = await Task.Run(() => DealCode.Decode(dealCode, Layouts));
+            else if (daily != null) next = await Task.Run(() => DealCode.Daily(daily.Value, Layouts));
+            else if (replay && Game != null)
             {
                 var old = Game;
                 next = new() { LayoutId = old.LayoutId, SetId = old.SetId, Seed = old.Seed, Positions = old.Positions.ToList(),
-                    Initial = new(old.Initial), Tiles = new(old.Initial), InitialSolution = old.InitialSolution.ToList() };
+                    Initial = new(old.Initial), Tiles = new(old.Initial), InitialSolution = old.InitialSolution.ToList(), ChallengeDate = old.ChallengeDate };
                 next.Solution = next.InitialSolution.ToList();
             }
             else
@@ -133,7 +145,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
             Game = next; Selected = null; Highlight = null; hintIndex = 0; Paused = false;
             SetStatus("ready"); Save(); Navigate("game");
         }
-        catch { SetStatus("generationError"); }
+        catch (Exception ex) { Log("generation", ex); SetStatus("generationError"); }
         finally { Busy = false; lastTick = clock.ElapsedMilliseconds; Refresh(); BoardChanged?.Invoke(); }
     }
     public void Choose(int id)
@@ -144,7 +156,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
         if (!Rules.Free(active.Single(p => p.Id == id), active)) { SetStatus("blocked"); Play("blocked"); return; }
         Highlight = null;
         if (Selected == id) Selected = null;
-        else if (Selected is int first && Rules.Remove(Game, first, id))
+        else if (Selected is int first && GameActions.Remove(Game, first, id))
         {
             Selected = null; hintIndex = 0; Play("remove"); CheckState(); Save();
         }
@@ -153,16 +165,29 @@ public sealed class GameViewModel : INotifyPropertyChanged
     }
     void CheckState()
     {
-        if (Game!.Tiles.Count == 0) { SetStatus("won"); Play("win"); }
+        if (Game!.Tiles.Count == 0) { Game.CompletedAt ??= DateTimeOffset.UtcNow; Save(); SetStatus("won"); Play("win"); RecordVictory(); }
         else if (Rules.Pairs(Game).Count == 0) { SetStatus(Game.ShuffleUsed ? "noMovesEnd" : "noMovesShuffle"); Play("stuck"); }
         else SetStatus("ready");
+    }
+    void RecordVictory()
+    {
+        try { ResultStore.SaveFinished(ResultsPath, Game!, "", automatic: true); LoadResults(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or InvalidDataException)
+        { Log("automatic-result", ex); SetStatus("resultSaveError"); }
+    }
+    public void Undo()
+    {
+        if (!CanUndo || !GameActions.Undo(Game!)) return;
+        Selected = null; Highlight = null; hintIndex = 0;
+        SetStatus("undone"); Save(); Refresh(); BoardChanged?.Invoke();
     }
     public void Hint()
     {
         if (!Playing) return;
         var pairs = Rules.Pairs(Game!);
         if (pairs.Count == 0) { CheckState(); return; }
-        Selected = null; Highlight = pairs[hintIndex++ % pairs.Count]; Game!.Hints++;
+        Selected = null; Highlight = pairs[hintIndex % pairs.Count]; hintIndex = (hintIndex + 1) % pairs.Count;
+        if (Game!.Hints < int.MaxValue) Game.Hints++;
         SetStatus("hintStatus"); Play("hint"); Save(); Refresh(); BoardChanged?.Invoke();
     }
     public async Task Shuffle()
@@ -177,7 +202,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
             if (success) { Game = copy; Selected = null; Highlight = null; hintIndex = 0; SetStatus("shuffleDone"); Play("shuffle"); Save(); }
             else SetStatus("shuffleFailed");
         }
-        catch { SetStatus("shuffleFailed"); }
+        catch (Exception ex) { Log("shuffle", ex); SetStatus("shuffleFailed"); }
         finally { Busy = false; lastTick = clock.ElapsedMilliseconds; Refresh(); BoardChanged?.Invoke(); }
     }
     public void TogglePause()
@@ -194,12 +219,12 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public void Save()
     {
         if (Game == null) return;
-        try { Storage.Atomic(SavePath, Game); }
+        try { writes.Enqueue(SavePath, Game); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SetStatus("saveError"); }
     }
     public void SavePreferences()
     {
-        try { Storage.Atomic(Path.Combine(DataDirectory, "settings.json"), Preferences); }
+        try { writes.Enqueue(Path.Combine(DataDirectory, "settings.json"), Preferences); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SetStatus("saveError"); }
     }
     public void LoadResults()
@@ -239,5 +264,18 @@ public sealed class GameViewModel : INotifyPropertyChanged
         try { player.Stop(); player.Open(new Uri(Path.Combine(AssetDirectory, "audio", name + ".wav"))); player.Volume = Preferences.Volume; player.Play(); }
         catch { /* Unavailable audio must not affect play. */ }
     }
-    public void Close() { Tick(); Save(); SavePreferences(); player.Close(); }
+    void Log(string operation, Exception error)
+    {
+        // Exception types only: no player names, image paths or saved data.
+        try
+        {
+            string path = Path.Combine(DataDirectory, "diagnostics.log");
+            Directory.CreateDirectory(DataDirectory);
+            if (File.Exists(path) && new FileInfo(path).Length > 65536) File.WriteAllText(path, "");
+            File.AppendAllText(path, $"{DateTimeOffset.UtcNow:O} {operation} {error.GetType().Name}{Environment.NewLine}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+    public void FlushSaves() => writes.Flush();
+    public void Close(bool save = true) { if (save) { Tick(); Save(); SavePreferences(); } FlushSaves(); player.Close(); }
 }

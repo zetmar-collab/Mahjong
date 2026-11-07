@@ -1,6 +1,12 @@
 # Instalator Mahjong Solitaire
 
-Gotowy plik: **artifacts/installer/Mahjong-Solitaire-1.1.0-Setup-x64.exe**.
+Aktualny instalator: **[Mahjong Solitaire 1.2.1 — Windows x64](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.1/Mahjong-Solitaire-1.2.1-Setup-x64.exe)**. Lokalna kopia: artifacts/installer/Mahjong-Solitaire-1.2.1-Setup-x64.exe.
+
+Weryfikacja 1.2.1: **1693 kontrole instalatora i 521 kontroli WPF**, bez błędów. [Pełny raport UI i instalacji](docs/releases/v1.2.1-ui.md). Starsze wyniki poniżej są historyczne.
+
+## Weryfikacja 1.2.0 (7.11.2026)
+
+Instalacja PL, ponowna instalacja EN, kontrola 417 plików i odinstalowanie: **1693 kontrole, 0 błędów**. Zainstalowana aplikacja zaliczyła **496 kontroli WPF**. Dane rzeczywistego gracza pozostały bez zmian. Szczegóły i sumy kontrolne: [raport 1.2.0](docs/releases/v1.2.0-validation.md).
 
 ## Dla gracza
 

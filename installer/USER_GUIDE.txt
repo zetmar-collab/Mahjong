@@ -14,11 +14,14 @@ Każdy początek ma rozwiązanie, ale dowolne wybory gracza nie gwarantują wygr
 STEROWANIE
 Mysz: wybierz dwie płytki. Ponowne kliknięcie tej samej odznacza ją.
 Strzałki: przechodzenie między płytkami. Enter / Spacja: wybór.
-H: podpowiedź. Esc: pauza. F11: pełny ekran. Tab: przyciski.
+H: podpowiedź. Ctrl+Z: cofnij parę. Esc: pauza. F11: pełny ekran. Tab: przyciski.
+Cofanie zachowuje czas i liczniki. Nie działa po zwycięstwie ani przez przetasowanie.
+Przyciski − / Dopasuj / + powiększają planszę; paski przewijają powiększony widok.
 Masz jedno przetasowanie na partię. Wznowienie zapisu nie odnawia limitu.
 
 WYNIKI I USTAWIENIA
-Po zwycięstwie wpisz opcjonalną nazwę gracza i kliknij Zapisz wynik.
+Wynik zwycięstwa zapisuje się automatycznie. Opcjonalną nazwę gracza możesz
+uzupełnić przyciskiem Zapisz nazwę. Rekordy są osobne dla gry z pomocą i bez niej.
 Historię otworzysz przez Zapisane wyniki. W ustawieniach możesz zmienić język,
 motyw, tło i dźwięki. Wybierz tło z pliku obsługuje PNG, JPG, BMP, GIF i TIFF;
 maksymalnie 32 MB i 80 megapikseli. Gra zachowuje własną kopię obrazu.
@@ -28,7 +31,12 @@ ZAPIS I AKTUALIZACJA
 Postęp jest zapisywany automatycznie. Dane są przechowywane w:
 %LOCALAPPDATA%\QuietMahjong
 Aktualizacja i odinstalowanie zachowują zapis, wyniki, ustawienia i własne tło.
-Aby wykonać kopię zapasową, zamknij grę i skopiuj cały ten katalog.
+W ustawieniach możesz eksportować/importować plik .mahjongbackup. Import sprawdza
+dane i zachowuje poprzednie pliki w podkatalogu Backups. Obecna w kopii historia
+zastępuje historię docelową; brakujące pliki zachowują obecne dane.
+Jak grać → Samouczek: trzy ćwiczenia bez wpływu na partię.
+Nowa gra → Wyzwanie dnia: wspólna plansza dla lokalnej daty.
+Kod partii na planszy → skopiuj kod MJ1; wklej go na ekranie nowej gry.
 
 ODINSTALOWANIE
 Ustawienia Windows → Aplikacje → Zainstalowane aplikacje → Mahjong Solitaire
@@ -52,10 +60,13 @@ CONTROLS
 Mouse: choose two tiles; clicking the same tile again deselects it.
 Arrows: navigate tiles. Enter / Space: select. H: hint. Esc: pause.
 F11: full screen. Tab: buttons. One shuffle is available per game;
-resuming a save does not reset it.
+resuming a save does not reset it. Ctrl+Z undoes a pair without resetting time
+or assistance. Undo cannot cross a shuffle or follow victory. Use − / Fit / +
+to zoom; use the scroll bars to pan the enlarged board.
 
 RESULTS AND SETTINGS
-After winning, enter an optional player name and choose Save result.
+Victories save automatically. Add an optional player name with Save name.
+Best times are separate for assisted and unassisted games.
 Open Saved results to view your history. Settings includes language, theme,
 backgrounds, audio and reduced motion. Choose background image supports PNG,
 JPEG, BMP, GIF and TIFF up to 32 MB and 80 megapixels. A local copy is retained.
@@ -63,7 +74,11 @@ JPEG, BMP, GIF and TIFF up to 32 MB and 80 megapixels. A local copy is retained.
 SAVES, UPDATES AND REMOVAL
 Progress saves automatically to %LOCALAPPDATA%\QuietMahjong.
 Updates and uninstall preserve your game, results, settings and custom image.
-To make a backup, close the game and copy that entire directory.
+Settings offers .mahjongbackup export/import. Import validates contents and
+keeps previous files in Backups. Included history replaces destination history;
+missing files preserve current data. Help → Tutorial has three practice boards.
+New game offers an offline daily challenge. Deal code shows an MJ1 code of the
+original deal; paste it on the New game screen to play the same deal.
 Uninstall through Windows Settings → Apps, or the Start menu uninstall shortcut.
 
 Copyright (c) 2026 Mahjong contributors. MIT license: LICENSE.
