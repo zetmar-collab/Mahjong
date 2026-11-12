@@ -8,7 +8,7 @@
     <AssemblyName>Mahjong</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\assets\mahjong.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>1.2.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mahjong.Core\Mahjong.Core.csproj" />

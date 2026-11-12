@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2 — 2026-11-12
+
+- Naprawiono pozostającą na planszy nakładkę „Ładowanie nowej planszy…” po uruchomieniu nowej gry. Plansza odświeża się po zakończeniu ładowania i ponownie przyjmuje kliknięcia.
+- Dodano testy WPF usunięcia nakładki, trafiania wskaźnikiem w płytkę i wyboru przez przycisk dla sześciu układów, ponownej gry, wyzwania dnia, kodu partii i przetasowania.
+
 ## 1.2.1 — 2026-11-07
 
 - Ujednolicony wygląd formularzy, list, suwaków, rozwijanych sekcji i pasków przewijania we wszystkich motywach.

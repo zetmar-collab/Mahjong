@@ -17,6 +17,21 @@ internal static class Smoke
         string output=index>=0&&index+1<args.Length?args[index+1]:Path.Combine(AppContext.BaseDirectory,"SmokeResults");
         Directory.CreateDirectory(output);List<string> log=[];int assertions=0;
         void Check(bool condition,string name){if(!condition)throw new Exception(name);assertions++;log.Add("PASS "+name);File.AppendAllText(Path.Combine(output,"progress.txt"),"PASS "+name+Environment.NewLine); }
+        void CheckBoardReady(string scenario)
+        {
+            window.UpdateLayout();
+            Check(!vm.Busy && vm.Playing, "Board is ready after " + scenario);
+            Check(!Descendants(window).OfType<TextBlock>().Any(t => t.Text == vm.Text["working"]),
+                "Loading overlay is removed after " + scenario);
+            var pair = Rules.Pairs(vm.Game!).First();
+            var tile = Descendants(window).OfType<Button>().Single(b => b.Tag is int id && id == pair.A);
+            var center = tile.TranslatePoint(new Point(tile.ActualWidth / 2, tile.ActualHeight / 2), window);
+            var hit = window.InputHitTest(center) as DependencyObject;
+            Check(hit == tile || (hit != null && tile.IsAncestorOf(hit)), "Tile receives pointer input after " + scenario);
+            tile.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(vm.Selected == pair.A, "Tile click selects after " + scenario);
+            tile.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
         async Task Render(string name,double density=1)
         {
             await window.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);
@@ -48,6 +63,7 @@ internal static class Smoke
                 vm.Preferences.ReducedMotion=layout.Id=="stairs";
                 var create=vm.NewGame();var duplicate=vm.NewGame();await Task.WhenAll(create,duplicate);
                 Check(vm.Game?.LayoutId==layout.Id && vm.Game.Tiles.Count==layout.Count,"New game "+layout.Id+" ignores concurrent request");
+                CheckBoardReady("new game " + layout.Id);
                 Check(Generator.Replay(vm.Game!,vm.Game!.Solution),"Full control solution "+layout.Id);
                 vm.Hint();Check(vm.Highlight!=null && Rules.Pairs(vm.Game).Contains(vm.Highlight),"Hint "+layout.Id);
                 var selected=vm.Highlight!;vm.Choose(selected.A);Check(vm.Selected==selected.A,"Select "+layout.Id);vm.Choose(selected.A);Check(vm.Selected==null,"Deselect "+layout.Id);
@@ -95,6 +111,7 @@ internal static class Smoke
             var beforeShuffle=vm.Game.Tiles.Values.GroupBy(s=>s.Id).ToDictionary(g=>g.Key,g=>g.Count());double seconds=vm.Game.Seconds;int hints=vm.Game.Hints;
             await Task.WhenAll(vm.Shuffle(),vm.Shuffle(),vm.Shuffle());
             Check(vm.Game.ShuffleUsed && vm.Game.Tiles.Count==remaining-2,"Concurrent shuffle consumes only one allowance");
+            CheckBoardReady("shuffle");
             Check(vm.Game.Hints==hints && vm.Game.Seconds>=seconds,"Shuffle keeps counters and clock");
             Check(beforeShuffle.All(g=>vm.Game.Tiles.Values.Count(s=>s.Id==g.Key)==g.Value),"Shuffle preserves distinct symbols");
             Check(Generator.Replay(vm.Game,vm.Game.Solution),"Shuffled state has full solution");vm.Save();vm.FlushSaves();
@@ -154,6 +171,7 @@ internal static class Smoke
             vm.Preferences.Theme="dark";vm.Preferences.Background="felt";window.RefreshAppearance();
             vm.Navigate("help");await Render("help-en");vm.ChangeLanguage("pl");await Render("help-pl");
             vm.Navigate("game");await vm.NewGame(true);Check(!vm.Game!.ShuffleUsed && JsonSerializer.Serialize(vm.Game.Tiles)==JsonSerializer.Serialize(vm.Game.Initial),"Replay resets original deal and allowance");
+            CheckBoardReady("replay");
             vm.Preferences.Zoom=2;window.RefreshAppearance();await Render("zoom-200");
             Check(Descendants(window).OfType<ScrollViewer>().Any(s=>s.HorizontalScrollBarVisibility==ScrollBarVisibility.Auto && s.ScrollableWidth>0),"Zoomed board can pan horizontally");
             vm.Preferences.Zoom=1;window.RefreshAppearance();
@@ -165,8 +183,10 @@ internal static class Smoke
             }
             vm.Navigate("tutorial");await Render("tutorial-pl");vm.ChangeLanguage("en");await Render("tutorial-en");
             await vm.NewGame(daily:new DateOnly(2026,11,7));Check(vm.Game!.ChallengeDate=="2026-11-07","Daily challenge opens in real WPF view");
+            CheckBoardReady("daily challenge");
             string code=DealCode.Encode(vm.Game);var dailyId=vm.Game.GameId;await vm.NewGame(dealCode:code);
             Check(vm.Game!.GameId!=dailyId && DealCode.Encode(vm.Game)==code && vm.Game.ChallengeDate==null,"Code starts independent copy of original deal");
+            CheckBoardReady("deal code");
             await Render("code-game-en");
             vm.Navigate("new");
             int Handlers()=>((MulticastDelegate?)typeof(GameViewModel).GetField("PropertyChanged",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(vm))?.GetInvocationList().Length??0;

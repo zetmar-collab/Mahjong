@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     Guid? celebratedGame;
     Guid? renderedGame;
     double renderedZoom;
+    bool renderedBusy;
     string T(string key) => Vm.Text[key];
     Brush R(string key) => (Brush)FindResource(key);
     Brush BoardBackground() => Vm.Preferences.Background == "custom" ? Vm.CustomBackground.Brush ?? BackgroundArt.Create("felt") : BackgroundArt.Create(Vm.Preferences.Background);
@@ -209,7 +210,7 @@ public partial class MainWindow : Window
     void DrawBoard()
     {
         if(boardHost==null || Vm.Game==null || Vm.Screen!="game") return;
-        if(!Vm.Paused && !Vm.Busy && Vm.Game.Tiles.Count>0 && renderedGame==Vm.Game.GameId && renderedZoom==Vm.Preferences.Zoom
+        if(!Vm.Paused && !Vm.Busy && renderedBusy==Vm.Busy && Vm.Game.Tiles.Count>0 && renderedGame==Vm.Game.GameId && renderedZoom==Vm.Preferences.Zoom
             && tileButtons.Count==Vm.Game.Tiles.Count && tileButtons.All(t=>t.Value.Content is TileArt art && Vm.Game.Tiles.TryGetValue(t.Key,out var s) && art.Symbol==s))
         {
             foreach(var (id,tile) in tileButtons)
@@ -227,7 +228,8 @@ public partial class MainWindow : Window
             }
             return;
         }
-        renderedGame=Vm.Game.GameId;renderedZoom=Vm.Preferences.Zoom;
+        // A busy render includes a blocking overlay; rebuild when loading ends.
+        renderedGame=Vm.Game.GameId;renderedZoom=Vm.Preferences.Zoom;renderedBusy=Vm.Busy;
         int? focused=tileButtons.FirstOrDefault(p=>p.Value.IsKeyboardFocused).Value?.Tag as int?;
         boardHost.Children.Clear();tileButtons.Clear();
         boardHost.Children.Add(new Border {Background=BoardBackground(),CornerRadius=new(16)});

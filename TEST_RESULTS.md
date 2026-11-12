@@ -1,4 +1,15 @@
-# Weryfikacja Mahjong Solitaire 1.2.1
+# Weryfikacja Mahjong Solitaire 1.2.2
+
+12 listopada 2026, Windows x64, SDK .NET 10.0.401.
+
+- 561 kontroli WPF, wszystkie zaliczone, w tym regresja pozostającej nakładki ładowania i trafiania wskaźnika w płytki.
+- 31 zestawów testów silnika i danych, 0 błędów; 378 pełnych rozwiązań w podstawowym liczniku.
+- Test regresji przed poprawką odtworzył błąd już przy pierwszym układzie.
+- Kompilacja Release: 0 błędów i ostrzeżeń.
+
+Szczegóły: [raport 1.2.2](docs/releases/v1.2.2-loading.md). Log WPF: artifacts/ui-tests/ui-tests.txt.
+
+## Historyczna weryfikacja 1.2.1
 
 7 listopada 2026, Windows 11 x64, SDK .NET 10.0.401.
 
