@@ -12,22 +12,32 @@ public sealed class TileArt : FrameworkElement
     public bool Selected { get; set; }
     public bool Hint { get; set; }
     public bool Labels { get; set; } = true;
+    public bool Jade { get; set; }
     public TileArt() { Width = 76; Height = 98; IsHitTestVisible = false; }
-    static Brush B(string hex) => new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+    static readonly Dictionary<string, Brush> BrushesByColor = [];
+    static readonly Dictionary<string, System.Windows.Media.Geometry> Paths = [];
+    static Brush B(string hex)
+    {
+        if (BrushesByColor.TryGetValue(hex, out var cached)) return cached;
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); brush.Freeze();
+        BrushesByColor[hex] = brush; return brush;
+    }
     static readonly string[] Colors = ["#207C70", "#A64445", "#385D92", "#956A26", "#704E8D", "#376847"];
     protected override void OnRender(DrawingContext d)
     {
         base.OnRender(d);
-        var edge = Selected ? B("#2AAFA5") : Hint ? B("#E8AD34") : B("#B6A88B");
+        var edge = Selected ? B("#2AAFA5") : Hint ? B("#E8AD34") : B(Jade ? "#4C8573" : "#B6A88B");
         d.DrawRoundedRectangle(B("#33000000"), null, new(4, 7, 70, 89), 7, 7);
-        d.DrawRoundedRectangle(B("#B4A181"), null, new(0, 5, 70, 88), 7, 7);
-        d.DrawRoundedRectangle(Blocked ? B("#E2DDCB") : B("#FFF9E8"), new(edge, Selected || Hint ? 3.5 : 1), new(0, 0, 70, 87), 7, 7);
+        d.DrawRoundedRectangle(B(Jade ? "#276753" : "#B4A181"), null, new(0, 5, 70, 88), 7, 7);
+        d.DrawRoundedRectangle(Blocked ? B(Jade ? "#D3DFD8" : "#E2DDCB") : B(Jade ? "#F7FFFA" : "#FFF9E8"), new(edge, Selected || Hint ? 3.5 : 1), new(0, 0, 70, 87), 7, 7);
+        if (Jade) d.DrawRoundedRectangle(null, new(B("#91BAA6"), .6), new(4, 5, 62, 77), 4, 4);
         d.DrawLine(new(B("#FFFFFF"), 1), new(7, 4), new(63, 4));
         int shape = (Symbol.Rank - 1) % 12;
         Brush ink = Symbol.Family switch { "dragon" => B(Symbol.Rank == 1 ? "#A64445" : Symbol.Rank == 2 ? "#207C70" : "#385D92"), "characters" => B("#A64445"), "bamboo" => B("#207C70"), "wind" => B("#385D92"), _ => B(Colors[shape % Colors.Length]) };
         d.PushTransform(new TranslateTransform(11, 13));
         if (Symbol.Family == "geometry") Geometry(d, shape, ink);
         else if (Symbol.Family == "nature") Nature(d, shape, ink);
+        else if (Jade) JadeClassic(d, Symbol, ink);
         else Classic(d, Symbol, ink);
         d.Pop();
         int number = Symbol.Family is "geometry" or "nature" ? (Symbol.Rank - 1) / 12 + 1 : Symbol.Rank;
@@ -40,7 +50,39 @@ public sealed class TileArt : FrameworkElement
     {
         d.DrawText(new FormattedText(value, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, bold ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal), size, brush, 1), new(x, y));
     }
-    static void Path(DrawingContext d, string data, Brush? fill, Brush ink, double width = 2.4) => d.DrawGeometry(fill, new(ink, width), System.Windows.Media.Geometry.Parse(data));
+    static void Path(DrawingContext d, string data, Brush? fill, Brush ink, double width = 2.4)
+    {
+        if (!Paths.TryGetValue(data, out var geometry)) { geometry = System.Windows.Media.Geometry.Parse(data); geometry.Freeze(); Paths[data] = geometry; }
+        d.DrawGeometry(fill, new(ink, width), geometry);
+    }
+    static void JadeClassic(DrawingContext d, Symbol s, Brush ink)
+    {
+        if (s.Family == "circles")
+        {
+            for (int i = 0; i < s.Rank; i++)
+            {
+                int cols = s.Rank < 5 ? 2 : 3;
+                double x = s.Rank == 1 ? 24 : 8 + i % cols * (cols == 2 ? 30 : 16);
+                double y = s.Rank == 1 ? 24 : 8 + i / cols * 16;
+                double r = s.Rank == 1 ? 20 : 6;
+                var color = B(i % 3 == 0 ? "#236B53" : i % 3 == 1 ? "#B7463F" : "#294E82");
+                d.DrawEllipse(null, new(color, 1.8), new(x, y), r, r);
+                d.DrawEllipse(null, new(color, 1), new(x, y), r * .65, r * .65);
+                d.DrawEllipse(color, null, new(x, y), r * .25, r * .25);
+            }
+        }
+        else if (s.Family == "bamboo")
+        {
+            for (int i = 0; i < s.Rank; i++)
+            {
+                double x = 7 + i % 3 * 16, y = 2 + i / 3 * 17;
+                d.DrawLine(new(B("#236B53"), 3), new(x + 3, y), new(x + 3, y + 13));
+                d.DrawLine(new(B("#B7463F"), 1.5), new(x, y + 6), new(x + 6, y + 6));
+                d.DrawEllipse(B("#236B53"), null, new(x + 6, y + 3), 3, 1.7);
+            }
+        }
+        else Classic(d, s, s.Family is "wind" or "dragon" ? B("#294E82") : ink);
+    }
     static void Polygon(DrawingContext d, int sides, Brush ink, bool star = false)
     {
         var points = Enumerable.Range(0, star ? sides * 2 : sides).Select(i => { double angle = -Math.PI / 2 + i * Math.PI * 2 / (star ? sides * 2 : sides); double r = star && i % 2 == 1 ? 10 : 23; return new Point(24 + Math.Cos(angle) * r, 25 + Math.Sin(angle) * r); }).ToArray();

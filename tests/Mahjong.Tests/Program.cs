@@ -22,7 +22,7 @@ GameState G(List<Position> p,params (int,Symbol)[] t)=>new(){Positions=p,Tiles=t
 string Signature(IEnumerable<Symbol> symbols)=>string.Join("|",symbols.GroupBy(s=>s.Id).OrderBy(g=>g.Key).Select(g=>g.Key+":"+g.Count()));
 GameState Clone(GameState g)=>JsonSerializer.Deserialize<GameState>(JsonSerializer.Serialize(g,Storage.Json),Storage.Json)!;
 
-Test("Layouts: size, uniqueness, same-layer intersections and complete support",()=>{layouts=Catalog.LoadLayouts(Path.Combine(assets,"layouts.json"));Check(layouts.Count==6);Check(layouts.Select(l=>l.Count).SequenceEqual(new[]{36,72,108,144,144,144}));});
+Test("Layouts: size, uniqueness, same-layer intersections and complete support",()=>{layouts=Catalog.LoadLayouts(Path.Combine(assets,"layouts.json"));Check(layouts.Count==8);Check(layouts.Select(l=>l.Count).SequenceEqual(new[]{36,72,108,144,144,144,144,144}));});
 Test("Covered tile, partial overlap and multiple covering tiles",()=>{
  var p=new Position(0,0,0,0);var q=new Position(1,1,1,1);Check(!Rules.Free(p,[p,q]));Check(Rules.Free(p,[p,new(1,2,0,1)]));
  Check(!Rules.Free(p,[p,new(1,-1,0,1),new(2,1,0,1)]));Check(!Rules.Free(p,[p,new(1,.5,1.5,2)]));
@@ -50,7 +50,7 @@ Test("Invalid layout rejected",()=>{
  foreach(var l in new[]{new Layout("bad",2,[new(0,0,0,0),new(0,2,0,0)]),new Layout("bad",2,[new(0,0,0,0),new(1,1,0,0)]),new Layout("bad",2,[new(0,0,0,0),new(1,8,0,1)])}){
  bool rejected=false;try{Rules.Validate(l);}catch(InvalidDataException){rejected=true;}Check(rejected);}
 });
-Test("360 complete generated solutions: six layouts x three decks x 20 fixed seeds",()=>{
+Test("640 complete generated solutions: eight layouts x four decks x 20 fixed seeds",()=>{
  foreach(var l in layouts)foreach(var set in Catalog.Sets)foreach(int seed in Enumerable.Range(0,20)){
  var game=Generator.New(l,set,seed*7919);Check(Generator.Replay(game,game.Solution),$"{l.Id}/{set}/{seed}");solutions++;
  var again=Generator.New(l,set,seed*7919);Check(JsonSerializer.Serialize(game.Tiles)==JsonSerializer.Serialize(again.Tiles),"Seed reproducibility");
@@ -196,6 +196,44 @@ Test("Backup rejects path traversal, checksum damage and invalid saves before re
  bool refused=false;try{BackupService.Import(zipPath,target,layouts,_=>{});}catch(InvalidDataException){refused=true;}Check(refused && File.ReadAllText(sentinel)=="unchanged");Check(!File.Exists(Path.Combine(target,"outside.json")));}
  }finally{Directory.Delete(dir,true);}
 });
+
+Test("New expert layouts have deeper geometry and narrower openings",()=>{
+ int oldDepth=layouts.Take(6).Max(l=>l.Positions.Max(p=>p.Z));
+ foreach(var layout in layouts.Skip(6)){Check(layout.Count==144 && layout.Positions.Max(p=>p.Z)>oldDepth);Check(layout.Positions.Count(p=>Rules.Free(p,layout.Positions))<=4);}
+ Check(layouts.Single(l=>l.Id=="pagoda").Positions.Max(p=>p.Z)==7);
+ Check(layouts.Single(l=>l.Id=="citadel").Positions.Max(p=>p.Z)==5);
+});
+Test("Traditional jade deck preserves classic identities and save compatibility",()=>{
+ Check(Catalog.Deck("jade",144).SequenceEqual(Catalog.Deck("classic",144)));
+ var game=Generator.New(layouts[^1],"jade",19);Check(Storage.Validate(Clone(game),layouts,out _));
+ var decoded=DealCode.Decode(DealCode.Encode(game),layouts);Check(decoded.SetId=="jade" && Generator.Replay(decoded,decoded.Solution));
+});
+Test("Family turns, passing, invalid moves, scoring, persistence and replay",()=>{
+ foreach(int count in new[]{2,3,4}){
+ var game=Generator.New(layouts[0],"jade",119);game.Family=FamilyMatch.Create(Enumerable.Range(1,count).Select(i=>"Player "+i));
+ var family=game.Family;var pair=game.Solution[0];Check(!GameActions.Remove(game,pair.A,pair.A));Check(family.Turn==0 && family.Players.All(p=>p.Points==0));
+ family.Pass();Check(family.Turn==1);Check(GameActions.Remove(game,pair.A,pair.B));Check(family.Players[1].Points==10 && family.Turn==2%count);
+ Check(!GameActions.Undo(game));var loaded=Clone(game);Check(Storage.Validate(loaded,layouts,out _));Check(loaded.Family!.Turn==family.Turn && loaded.Family.Players[1].Points==10);
+ Check(Generator.Shuffle(loaded,120));Check(loaded.Family.Players[1].Points==10 && Storage.Validate(loaded,layouts,out _));
+ foreach(var p in loaded.Solution.ToArray())Check(GameActions.Remove(loaded,p.A,p.B));
+ Check(loaded.Family.Players.Sum(p=>p.Points)==180 && loaded.Family.Winners.Any());
+ var reset=loaded.Family.Restart();Check(reset.Turn==0 && reset.Players.All(p=>p.Points==0));
+ }
+ foreach(var names in new[]{new[]{"A"},new[]{"A","a"},new[]{"A",""},new[]{"A",new string('X',25)},new[]{"A","B","C","D","E"}}){bool refused=false;try{FamilyMatch.Create(names);}catch(ArgumentException){refused=true;}Check(refused);}
+ var invalid=Generator.New(layouts[0],"jade",1);invalid.Family=FamilyMatch.Create(["A","B"]);invalid.Family.Players[0]=new("A",1);Check(!Storage.Validate(invalid,layouts,out _));
+});
+Test("Family result history retains points and separates game modes",()=>{
+ string directory=Path.Combine(Path.GetTempPath(),"MahjongFamily-"+Guid.NewGuid());string path=Path.Combine(directory,"results.json");
+ try{var game=Generator.New(layouts[0],"jade",27);game.Family=FamilyMatch.Create(["Ala","Ola"]);
+ foreach(var p in game.Solution.ToArray())Check(GameActions.Remove(game,p.A,p.B));
+ var result=ResultStore.SaveFinished(path,game,"",automatic:true);Check(result.NameConfirmed && result.FamilyPlayers!.Sum(p=>p.Points)==180);
+ var rows=ResultStore.Load(path);Check(ResultQuery.Filter(rows,mode:"familyFilter").Count()==1 && !ResultQuery.Filter(rows,mode:"soloMode").Any());
+ Check(result.FamilyPlayers![0].Points==90 && result.FamilyPlayers[1].Points==90);
+ game.Family.Players[0]=new("Ala",0);Check(ResultStore.Load(path)[0].FamilyPlayers![0].Points==90);
+ }finally{if(Directory.Exists(directory))Directory.Delete(directory,true);}
+});
+Test("Indexed generator preserves version-1 seeded paths",()=>GeneratorCompatibility.Verify(layouts));
+UpdateTests.Register(Test);
 
 Console.WriteLine($"RESULT: {passed} suites passed, {failed} failed, {solutions} full solutions replayed, {watch.Elapsed.TotalSeconds:F2}s");
 Environment.ExitCode=failed==0?0:1;

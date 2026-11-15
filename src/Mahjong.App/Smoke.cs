@@ -56,6 +56,26 @@ internal static class Smoke
             }
             int initialResults=vm.Results.Count;
             vm.Preferences.Muted=true;vm.ChangeLanguage("pl");await Render("menu-pl");
+            var notification = new ReleaseUpdate(new Version(9,0,0), new Uri(UpdateService.Repository+"/releases/download/v9.0.0/Mahjong-Solitaire-9.0.0-Setup-x64.exe"),4096,new string('0',64));
+            var updateBanner=(Border)window.FindName("UpdateBanner");
+            window.PresentUpdate(notification);
+            Check(updateBanner.Visibility==Visibility.Visible && !window.OwnedWindows.Cast<Window>().Any(),"Update notification waits for consent without opening an installer");
+            await Render("update-notification");
+            Descendants(updateBanner).OfType<Button>().Single(b=>(string)b.Content==vm.Text["updateLater"]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(updateBanner.Visibility==Visibility.Collapsed,"Update can be deferred");
+            window.PresentUpdate(null);Check(updateBanner.Visibility==Visibility.Collapsed,"No newer release leaves notification hidden");
+            Descendants(window).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["familyMode"]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(vm.Screen=="new","Family menu opens game setup");
+            window.UpdateLayout();
+            Descendants(window).OfType<ComboBox>().Single().SelectedIndex=2;
+            window.UpdateLayout();
+            Check(Descendants(window).OfType<TextBox>().Count(t=>t.MaxLength==24)==4,"Family setup offers four individually named players");
+            await Render("family-setup-pl");
+            Descendants(window).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["soloMode"]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.UpdateLayout();
+            Check(!Descendants(window).OfType<TextBox>().Any(t=>t.MaxLength==24),"Solo selection hides family names");
+            var jadeChoice=Descendants(window).OfType<Button>().Single(b=>System.Windows.Automation.AutomationProperties.GetName(b)==vm.Text["jade"]);
+            jadeChoice.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Check(vm.Preferences.Set=="jade","Jade set is selectable from new-game cards");
             vm.Navigate("new");await Render("new-game-pl");
             foreach(var layout in vm.Layouts)
             {
@@ -95,10 +115,43 @@ internal static class Smoke
                 Check(!vm.SaveResult("Duplicate"),"Repeated result save ignored "+layout.Id);
                 window.RefreshAppearance();Check(!HasCelebration(window),"Victory animation is not replayed on redraw "+layout.Id);
             }
-            Check(vm.Results.Count==initialResults+6,"Six completed games recorded");
+            Check(vm.Results.Count==initialResults+vm.Layouts.Count,"Every layout has a completed game recorded");
             vm.FlushSaves();var history=new GameViewModel(vm.DataDirectory);Check(history.Results.Count==vm.Results.Count,"Result history survives reopening");history.Close(false);
             vm.Navigate("results");await Render("saved-results-pl");vm.ChangeLanguage("en");await Render("saved-results-en");
             vm.Preferences.ReducedMotion=false;
+            vm.Preferences.Layout="pagoda";vm.Preferences.Set="jade";
+            await vm.NewGame(players:["Marek","Ola","Jan"]);CheckBoardReady("family game");
+            window.PresentUpdate(notification);Exception? updateDialogFailure=null;bool inspectedUpdateDialog=false;
+            _ = window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>{
+                Window? dialog=null;
+                try{
+                    dialog=window.OwnedWindows.Cast<Window>().Single();dialog.UpdateLayout();
+                    Check(vm.Paused,"Update consent dialog pauses the active game");
+                    Check(Descendants(dialog).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["updateApply"]).Visibility==Visibility.Collapsed,"Installer action is unavailable before a verified download");
+                    inspectedUpdateDialog=true;
+                }catch(Exception ex){updateDialogFailure=ex;}
+                finally{dialog?.Close();}
+            }));
+            Descendants(updateBanner).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["updateInstall"]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if(updateDialogFailure!=null)throw updateDialogFailure;
+            Check(inspectedUpdateDialog && vm.Playing && !vm.Paused,"Deferring update resumes the game without downloading or installing");window.PresentUpdate(null);
+            Check(Descendants(window).OfType<TileArt>().All(t=>t.Jade),"Jade tile art is applied to the entire board");
+            var familyPair=vm.Game!.Solution[0];
+            foreach(int id in new[]{familyPair.A,familyPair.B})Descendants(window).OfType<Button>().Single(b=>b.Tag is int tileId && tileId==id).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(vm.Game!.Family!.Players[0].Points==10 && vm.Game.Family.Turn==1,"Family tile buttons award points and advance the turn");
+            Check(!vm.CanUndo && vm.FamilyTurn.Contains("Ola") && vm.Progress>0,"Family UI displays turn and progress and disables undo");
+            Descendants(window).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["passTurn"]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(vm.Game.Family.Turn==2 && vm.Game.Family.Players[2].Points==0,"Pass button advances without awarding points");
+            vm.Save();vm.FlushSaves();var familyReload=new GameViewModel(vm.DataDirectory);
+            Check(familyReload.Game!.Family!.Turn==2 && familyReload.Game.Family.Players[0].Points==10,"Family scores and turn survive reopening");familyReload.Close(false);
+            await Render("family-jade-pagoda");
+            foreach(var p in vm.Game.Solution.Skip(1).ToArray()){vm.Choose(p.A);vm.Choose(p.B);}
+            Check(vm.Game.Tiles.Count==0 && vm.ResultSaved && !vm.CanSaveResult && vm.Results.Any(r=>r.GameId==vm.Game.GameId && r.FamilyPlayers?.Sum(p=>p.Points)==720),"Family victory records all scores automatically");
+            Check(Descendants(window).OfType<TextBlock>().Any(t=>t.Text==vm.FamilyWinner),"Family victory displays winners");
+            await Task.Delay(500);await Render("family-victory");
+            Check(Descendants(window).OfType<ScrollViewer>().Any(s=>s.ViewportHeight>0 && s.ScrollableHeight>0),"Family victory actions remain reachable by scrolling in a short board viewport");
+            await vm.NewGame(true);Check(vm.Game!.Family!.Turn==0 && vm.Game.Family.Players.All(p=>p.Points==0),"Family replay resets scores and turn");
+            await vm.NewGame(players:["Same","Same"]);Check(vm.Status==vm.Text["familyNamesError"] && !vm.Busy,"Invalid family names show a useful error and keep the game");
             vm.Preferences.Layout="turtle";vm.Preferences.Set="nature";await vm.NewGame();
             var initial=JsonSerializer.Serialize(vm.Game!.Tiles);var gameId=vm.Game.GameId;int remaining=vm.Game.Tiles.Count;
             vm.TogglePause();double pausedTime=vm.Game.Seconds;await Task.Delay(550);vm.Tick();Check(vm.Game.Seconds==pausedTime,"Pause stops active clock");await Render("pause");
@@ -192,7 +245,7 @@ internal static class Smoke
             int Handlers()=>((MulticastDelegate?)typeof(GameViewModel).GetField("PropertyChanged",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(vm))?.GetInvocationList().Length??0;
             int count=Handlers();for(int i=0;i<20;i++)window.RefreshAppearance();Check(Handlers()==count,"Repeated new-game redraws do not accumulate handlers");
             await window.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);window.UpdateLayout();
-            var primary=Descendants(window).OfType<Button>().First(b=>b.Style==window.FindResource("PrimaryButton"));
+            var primary=Descendants(window).OfType<Button>().Single(b=>b.Content is string label && label==vm.Text["start"]);
             var primaryText=Descendants(primary).OfType<TextBlock>().First();
             Check(primaryText.Foreground==Application.Current.Resources["AccentInk"],"Primary action text inherits contrasting ink");
             window.Width=1000;window.Height=680;await Render("new-game-minimum");

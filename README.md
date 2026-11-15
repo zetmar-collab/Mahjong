@@ -1,20 +1,34 @@
 # Mahjong Solitaire — Windows
 
-Spokojna, jednoosobowa gra offline dla Windows x64. C# / WPF / .NET 10. Bez reklam, serwera i dodatkowych pakietów NuGet.
+Spokojna gra dla Windows x64: solo lub rodzinnie na jednym komputerze. Rozgrywka offline, opcjonalne aktualizacje z GitHuba. C# / WPF / .NET 10. Bez reklam, serwera gry i dodatkowych pakietów NuGet.
 
 ## Pobierz grę
 
-**[Instalator Windows x64 — Setup.exe](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.2/Mahjong-Solitaire-1.2.2-Setup-x64.exe)** · **[Wersja przenośna ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.2/Mahjong-win-x64.zip)** · **[Wszystkie wydania](https://github.com/zetmar-collab/Mahjong/releases)**
+**[Instalator Windows x64 — Setup.exe](https://github.com/zetmar-collab/Mahjong/releases/download/v1.3.0/Mahjong-Solitaire-1.3.0-Setup-x64.exe)** · **[Wersja przenośna ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.3.0/Mahjong-win-x64.zip)** · **[Wszystkie wydania](https://github.com/zetmar-collab/Mahjong/releases)**
 
 Instalator zawiera wszystkie zasoby oraz .NET. Działa offline i nie wymaga administratora. Po instalacji uruchom grę z menu Start. Wersję przenośną rozpakuj w całości i uruchom Mahjong.exe. Wydanie nie jest podpisane cyfrowo. Testy wykonano na Windows 11 x64; osobnego uruchomienia na Windows 10 nie weryfikowano.
 
-![Menu Mahjong Solitaire 1.2.1](docs/screenshots/menu.png)
+![Menu Mahjong Solitaire 1.3.0](docs/screenshots/menu.png)
+
+![Rodzinny stół z jadeitowym zestawem na Pagodzie](docs/screenshots/family.png)
 
 ![Plansza Mahjong Solitaire](docs/screenshots/game.png)
 
 ![Gratulacje i zapis wyniku](docs/screenshots/victory.png)
 
-**English:** Download the [Windows installer](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.2/Mahjong-Solitaire-1.2.2-Setup-x64.exe) or the [portable ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.2.2/Mahjong-win-x64.zip). The runtime is bundled and the game works offline. Use PL / EN at the top to switch languages. No administrator account is required. This release is unsigned and was tested on Windows 11 x64.
+**English:** Download the [Windows installer](https://github.com/zetmar-collab/Mahjong/releases/download/v1.3.0/Mahjong-Solitaire-1.3.0-Setup-x64.exe) or the [portable ZIP](https://github.com/zetmar-collab/Mahjong/releases/download/v1.3.0/Mahjong-win-x64.zip). The runtime is bundled and the game works offline. Use PL / EN at the top to switch languages. No administrator account is required. This release is unsigned and was tested on Windows 11 x64.
+
+## Wersja 1.3.0 — rodzinny stół i aktualizacje
+
+- **Aktualizacje za zgodą:** powiadomienie o stabilnym wydaniu na GitHubie, pobieranie z weryfikacją SHA-256, a następnie zapis partii i uruchomienie instalatora. Sprawdzanie przy starcie i co 6 godzin można wyłączyć w ustawieniach.
+- **Dwie nowe plansze:** Cytadela — 6 warstw; Pagoda — 8 warstw. Każda ma 144 płytki i zweryfikowane rozwiązanie.
+- **Rodzinnie:** 2–4 graczy, wspólna plansza, jedna para na turę, 10 punktów za parę, osobne wyniki, zapis kolejki i remis jako wspólna wygrana.
+- **Drugi zestaw tradycyjny:** jadeitowe wykończenie i porcelanowe płytki z nowymi rysunkami kół i bambusów.
+- **Płynniejsza gra:** indeksowanie geometrii generatora, współdzielenie rysunków, pasek postępu i krótkie potwierdzenie udanej pary.
+
+**Starszą grę zaktualizuj do 1.3.0 ręcznie, korzystając z instalatora powyżej.** Dopiero od tej wersji gra sama informuje o następnych wydaniach. Wersja przenośna także może zostać zainstalowana przez kreator. Gra nadal działa bez internetu; imiona, zapisy i wyniki pozostają lokalnie.
+
+Weryfikacja: **39 zestawów silnika i danych, 769 kontroli WPF**, bez błędów. [Raport funkcji, testów i analizy projektu](docs/releases/v1.3.0-family-updates.md).
 
 ## Wersja 1.2.2 — poprawka ładowania planszy
 
@@ -24,7 +38,7 @@ Usunięto błąd, przez który po rozpoczęciu gry pozostawał napis „Ładowan
 
 Nowe menu, spójne kontrolki wszystkich motywów, karty ustawień, opisane filtry, wyraźne zaznaczenia i przyciski nowej gry zawsze widoczne nad stopką. Zachowano zasady i zapis. Weryfikacja: **521 kontroli WPF** oraz **31 zestawów silnika**. Szczegóły: [raport UI](docs/releases/v1.2.1-ui.md).
 
-Aktualne publiczne wydanie: **[1.2.2](https://github.com/zetmar-collab/Mahjong/releases/tag/v1.2.2)**. Instalator zawiera grę i środowisko .NET; ZIP jest wersją przenośną.
+Aktualne publiczne wydanie: **[1.3.0](https://github.com/zetmar-collab/Mahjong/releases/tag/v1.3.0)**. Instalator zawiera grę i środowisko .NET; ZIP jest wersją przenośną.
 
 ## Wersja 1.2.0 — poprawki i rozwój
 
@@ -56,7 +70,7 @@ Dodatkowe lokalne pliki w **%LOCALAPPDATA%/QuietMahjong/**: **results.json** (hi
 
 ## Instalator dla użytkownika końcowego
 
-Uruchom **artifacts/installer/Mahjong-Solitaire-1.2.2-Setup-x64.exe**. Jest to jeden plik zawierający grę, wszystkie zasoby i .NET. Instalacja działa offline, bez uprawnień administratora. Kreator PL/EN tworzy skróty w menu Start, opcjonalny skrót na pulpicie i deinstalator. Aktualizacja i odinstalowanie zachowują dane gracza. Szczegóły, budowanie i wyniki testów: **INSTALLER.md**.
+Uruchom **artifacts/installer/Mahjong-Solitaire-1.3.0-Setup-x64.exe**. Jest to jeden plik zawierający grę, wszystkie zasoby i .NET. Instalacja działa offline, bez uprawnień administratora. Kreator PL/EN tworzy skróty w menu Start, opcjonalny skrót na pulpicie i deinstalator. Aktualizacja i odinstalowanie zachowują dane gracza. Szczegóły, budowanie i wyniki testów: **INSTALLER.md**.
 
 ## Uruchomienie gotowej gry
 
@@ -66,8 +80,8 @@ Nie trzeba uprawnień administratora. Wersja 1.2 chroni dane przed drugim równo
 
 ## Co zawiera gra
 
-- Sześć układów z miniaturami: Polana 36, Schodki 72, Motyl 108, Żółw 144, Twierdza 144, Smok 144.
-- Trzy kompletne zestawy: geometria i natura (12 sylwetek × 3 numery; paruj identyczny obraz i numer) oraz klasyczny zestaw 144 płytek.
+- Osiem układów z miniaturami: Polana 36, Schodki 72, Motyl 108, Żółw 144, Twierdza 144, Smok 144, Cytadela 144, Pagoda 144.
+- Cztery kompletne zestawy: geometria i natura (12 sylwetek × 3 numery; paruj identyczny obraz i numer) oraz tradycyjne klasyczny i jadeitowy, po 144 płytki.
 - Klasyczny: po 4 kopie 27 płytek liczbowych, 4 wiatrów i 3 smoków; 4 odrębne kwiaty i 4 odrębne pory roku. Kwiaty pasują między sobą, pory roku między sobą, nigdy między kategoriami.
 - Wolny bok i brak przykrycia są sprawdzane geometrycznie, również przy przesunięciu o pół płytki. Odsłonięta góra lub dół nie odblokowuje boku.
 - Podpowiedź podświetla dwie legalne płytki i przechodzi cyklicznie przez dostępne kombinacje. Nie obiecuje bezpiecznej kontynuacji.
@@ -126,7 +140,7 @@ Równoważna publikacja samej aplikacji:
 dotnet publish src/Mahjong.App/Mahjong.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=None -o artifacts/Mahjong-win-x64
 ~~~
 
-Przy pierwszym budowaniu / publikacji może być potrzebny internet do pobrania pakietów runtime z nuget.org. Gotowe wydanie nie korzysta z sieci. Zamknij aplikację uruchomioną z katalogu docelowego przed nadpisaniem jej plików.
+Przy pierwszym budowaniu / publikacji może być potrzebny internet do pobrania pakietów runtime z nuget.org. Gotowa gra działa offline; włączone sprawdzanie aktualizacji i ich pobieranie korzystają z GitHuba. Zamknij aplikację uruchomioną z katalogu docelowego przed nadpisaniem jej plików.
 
 ## Architektura
 
@@ -181,7 +195,7 @@ Zapis trafia najpierw do pliku tymczasowego, jest opróżniany na dysk i zastęp
 
 Wyniki wykonane w tym środowisku oraz ograniczenia są w **artifacts/TEST_RESULTS.md**. Log silnika: **artifacts/update-core-tests.txt**. Log aplikacji i obrazy kontrolne wersji 1.1: **artifacts/update-ui-final-verified/**.
 
-Testy silnika sprawdzają rzeczywiste przykrycia, boki, półprzesunięcia, dopasowania, 360 startów (6 × 3 × 20 seedów), pełne rozwiązania, legalność wszystkich podpowiedzi, 18 przetasowań, transakcyjne niepowodzenie, wielokrotne usuwanie, zapis, uszkodzenia i odmianę PL/EN.
+Testy silnika sprawdzają rzeczywiste przykrycia, boki, półprzesunięcia, dopasowania, 640 startów (8 × 4 × 20 seedów), pełne rozwiązania, legalność podpowiedzi, 32 przetasowania, transakcyjne niepowodzenie, zapis, punktację rodzinną, aktualizacje, uszkodzenia i odmianę PL/EN.
 
 Test WPF przechodzi pełną grę każdego układu przez metodę używaną przez przyciski, powtarza kliknięcia, uruchamia równoległe żądania nowej gry i przetasowania, sprawdza pauzę, język, ponowną grę i zachowanie limitu po wczytaniu. Renderuje widoki, motywy i tła; sprawdza też obecność wszystkich WAV.
 
@@ -204,7 +218,7 @@ Tryb testowy używa osobnego katalogu SmokeData obok EXE; nie dotyka zwykłego z
 - Trudności są etykietami projektowymi wynikającymi z geometrii. Zweryfikowano możliwość pełnego przejścia, ale nie przeprowadzono badania trudności z grupą graczy.
 - Zestaw klasyczny używa własnych uproszczonych symboli; oznaczenia pomocnicze można wyłączyć. Nie jest to replika historycznego kompletu konkretnego producenta.
 - Pliki dźwiękowe zostały sprawdzone i uruchomiono ścieżkę odtwarzania. Odsłuch na fizycznych głośnikach i urządzeniach bez audio wymaga sprawdzenia na komputerze gracza.
-- Dostępne są instalator EXE oraz folder przenośny i ZIP. EXE nie ma podpisu Authenticode. Aktualne publiczne wydanie na GitHubie ma numer 1.2.2.
+- Dostępne są instalator EXE oraz folder przenośny i ZIP. EXE nie ma podpisu Authenticode. Aktualne publiczne wydanie na GitHubie ma numer 1.3.0.
 
 ### Ręczna lista kontrolna na innym komputerze
 

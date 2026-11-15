@@ -14,7 +14,7 @@ namespace Mahjong.App;
 
 public partial class MainWindow
 {
-    string resultLayout = "all", resultSet = "all", resultHelp = "all", resultOrder = "newest";
+    string resultLayout = "all", resultSet = "all", resultHelp = "all", resultOrder = "newest", resultMode = "all";
     bool dailyOnly;
     double scrollX, scrollY;
     Guid? viewportGame;
@@ -115,12 +115,13 @@ public partial class MainWindow
         AddFilter("tileSet",Combo(["all", .. Catalog.Sets], resultSet, id => { resultSet = id; RenderScreen(); }));
         AddFilter("helpFilter",Combo(["all", "unassisted", "assisted"], resultHelp, id => { resultHelp = id; RenderScreen(); }));
         AddFilter("sortFilter",Combo(["newest", "fastest"], resultOrder, id => { resultOrder = id; RenderScreen(); }));
+        AddFilter("modeFilter",Combo(["all", "soloMode", "familyFilter"], resultMode, id => { resultMode = id; RenderScreen(); }));
         var daily = new CheckBox { Content = T("dailyOnly"), IsChecked = dailyOnly, Margin = new(12), Foreground = R("Text") };
         daily.Checked += (_, _) => { dailyOnly = true; RenderScreen(); }; daily.Unchecked += (_, _) => { dailyOnly = false; RenderScreen(); }; filters.Children.Add(daily);
         header.Children.Add(filters);
-        var rows = ResultQuery.Filter(Vm.Results, resultLayout, resultSet, resultHelp, resultOrder, dailyOnly).ToList();
+        var rows = ResultQuery.Filter(Vm.Results, resultLayout, resultSet, resultHelp, resultOrder, dailyOnly, resultMode).ToList();
         // Records are compared only within the same layout, set and help category.
-        var records = rows.GroupBy(r => (r.LayoutId, r.SetId, Help: ResultQuery.Assisted(r)))
+        var records = rows.GroupBy(r => (r.LayoutId, r.SetId, Help: ResultQuery.Assisted(r), Family: r.FamilyPlayers != null))
             .ToDictionary(g => g.Key, g => g.Min(r => r.Seconds));
         header.Children.Add(Text(rows.Count == 0 ? T("noResults") : T("resultsHelp"), 13, "Muted")); root.Children.Add(header);
         var culture = CultureInfo.GetCultureInfo(Vm.Text.Language == "pl" ? "pl-PL" : "en-GB");
@@ -138,8 +139,8 @@ public partial class MainWindow
         }
         template.VisualTree = stack; list.ItemTemplate = template;
         list.ItemsSource = rows.Select(r => new ResultRow(
-            (string.IsNullOrWhiteSpace(r.Player) ? T("playerDefault") : r.Player) + " · " + GameTime.Format(r.Seconds)
-                + (r.Seconds == records[(r.LayoutId, r.SetId, ResultQuery.Assisted(r))] ? " · " + T("record") : ""),
+            (r.FamilyPlayers != null ? T("familyFilter") + " · " + string.Join(" / ", r.FamilyPlayers.Select(p => p.Name + ": " + p.Points)) : string.IsNullOrWhiteSpace(r.Player) ? T("playerDefault") : r.Player) + " · " + GameTime.Format(r.Seconds)
+                + (r.Seconds == records[(r.LayoutId, r.SetId, ResultQuery.Assisted(r), r.FamilyPlayers != null)] ? " · " + T("record") : ""),
             T(r.LayoutId) + " / " + T(r.SetId) + " · " + T(ResultQuery.Assisted(r) ? "assisted" : "unassisted"),
             r.FinishedAt.ToLocalTime().ToString("g", culture) + " · " + T("hints") + ": " + r.Hints + " · " + T("undo") + ": " + r.UndoCount
                 + " · " + T("shuffleUsed") + ": " + T(r.ShuffleUsed ? "yes" : "no") + (r.ChallengeDate == null ? "" : " · " + T("daily") + " " + r.ChallengeDate))).ToArray();

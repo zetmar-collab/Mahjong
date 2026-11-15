@@ -26,6 +26,7 @@ public sealed class GameState
     public int UndoCount { get; set; }
     public List<RemovedPair> Moves { get; set; } = [];
     public string? ChallengeDate { get; set; }
+    public FamilyMatch? Family { get; set; }
 }
 
 public static class Rules
@@ -88,7 +89,7 @@ public static class Rules
 
 public static class Catalog
 {
-    public static readonly string[] Sets = ["geometry", "nature", "classic"];
+    public static readonly string[] Sets = ["geometry", "nature", "classic", "jade"];
     public static List<Layout> LoadLayouts(string path)
     {
         var layouts = JsonSerializer.Deserialize<List<Layout>>(File.ReadAllText(path), Storage.Json) ?? throw new InvalidDataException();
@@ -99,7 +100,7 @@ public static class Catalog
     {
         if (!Sets.Contains(set) || count % 2 != 0 || count > 144) throw new ArgumentException("Invalid deck.");
         List<Symbol> deck = [];
-        if (set == "classic")
+        if (set is "classic" or "jade")
         {
             foreach (var family in new[] { "circles", "bamboo", "characters" })
                 for (int rank = 1; rank <= 9; rank++)
@@ -136,13 +137,23 @@ public static class Generator
         int nodes = 0;
         HashSet<string> dead = [];
         List<Pair> path = [];
+        // Geometry is constant throughout the search. Index blockers once instead
+        // of scanning every position for every candidate at every recursive node.
+        var blockers = positions.ToDictionary(p => p.Id, p => (
+            Above: positions.Where(q => q.Z > p.Z && Rules.Overlap(p.X, q.X) && Rules.Overlap(p.Y, q.Y)).Select(q => q.Id).ToArray(),
+            Left: positions.Where(q => q.Z == p.Z && Rules.Overlap(p.Y, q.Y) && Math.Abs(q.X + 2 - p.X) < .00001).Select(q => q.Id).ToArray(),
+            Right: positions.Where(q => q.Z == p.Z && Rules.Overlap(p.Y, q.Y) && Math.Abs(p.X + 2 - q.X) < .00001).Select(q => q.Id).ToArray()));
         bool Search(List<Position> active)
         {
             if (active.Count == 0) return true;
             if (++nodes > maxNodes || watch.ElapsedMilliseconds > milliseconds) return false;
             string key = string.Join(',', active.Select(p => p.Id));
             if (dead.Contains(key)) return false;
-            var free = active.Where(p => Rules.Free(p, active)).OrderBy(_ => random.Next()).ToArray();
+            var ids = active.Select(p => p.Id).ToHashSet();
+            var free = active.Where(p => {
+                var b = blockers[p.Id];
+                return !b.Above.Any(ids.Contains) && (!b.Left.Any(ids.Contains) || !b.Right.Any(ids.Contains));
+            }).OrderBy(_ => random.Next()).ToArray();
             for (int i = 0; i < free.Length; i++)
                 for (int j = i + 1; j < free.Length; j++)
                 {
@@ -216,6 +227,7 @@ public sealed class Preferences
     public bool ReducedMotion { get; set; }
     public bool Labels { get; set; } = true;
     public double Zoom { get; set; } = 1;
+    public bool CheckUpdates { get; set; } = true;
 }
 
 public static class Storage
@@ -268,6 +280,7 @@ public static class Storage
             if (!s.ShuffleUsed && s.Tiles.Any(p => s.Initial[p.Key] != p.Value)) return false;
             if (!Generator.Replay(new GameState { Positions = s.Positions, Tiles = new(s.Initial) }, s.InitialSolution)) return false;
             if (!GameActions.ValidHistory(s)) return false;
+            if (s.Family != null && (!s.Family.Valid((s.Initial.Count - s.Tiles.Count) / 2) || s.UndoCount != 0)) return false;
             if (s.CompletedAt is { } completed && (completed == default || s.Tiles.Count != 0)) return false;
             if (!GameTime.ValidDate(s.ChallengeDate)) return false;
             state = s;

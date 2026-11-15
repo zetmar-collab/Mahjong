@@ -7,7 +7,7 @@ Gra działa bez internetu. Wszystkie potrzebne składniki są dołączone.
 ZASADY
 Zdejmuj dwie pasujące, wolne płytki. Płytka musi być odsłonięta od góry i mieć
 cały lewy albo prawy bok wolny. Samo odsłonięcie przodu lub tyłu nie wystarcza.
-W geometrii i naturze muszą zgadzać się symbol i numer. W zestawie klasycznym
+W geometrii i naturze muszą zgadzać się symbol i numer. W obu zestawach tradycyjnych
 kwiat pasuje do kwiatu, pora roku do pory roku; kwiat nie pasuje do pory roku.
 Każdy początek ma rozwiązanie, ale dowolne wybory gracza nie gwarantują wygranej.
 
@@ -27,10 +27,26 @@ motyw, tło i dźwięki. Wybierz tło z pliku obsługuje PNG, JPG, BMP, GIF i TI
 maksymalnie 32 MB i 80 megapikseli. Gra zachowuje własną kopię obrazu.
 Opcja Ogranicz animacje wyłącza konfetti po zwycięstwie.
 
+GRA RODZINNA I NOWE PLANSZE
+Zagraj z rodziną: 2–4 osoby na jednym komputerze, wspólna plansza i osobne punkty.
+Poprawna para daje 10 punktów i kończy turę. Oddaj kolejkę: bez punktów.
+Wygrywa najwięcej punktów; remis oznacza wspólne zwycięstwo. Cofanie jest wyłączone.
+Imiona, punkty i kolejka zapisują się razem z partią. Historia ma filtr trybu gry.
+Cytadela: 144 płytki, 6 warstw. Pagoda: 144 płytki, 8 warstw.
+Drugi komplet tradycyjny: jadeitowy. Wybór zestawu dotyczy nowej gry.
+
 ZAPIS I AKTUALIZACJA
 Postęp jest zapisywany automatycznie. Dane są przechowywane w:
 %LOCALAPPDATA%\QuietMahjong
 Aktualizacja i odinstalowanie zachowują zapis, wyniki, ustawienia i własne tło.
+Od wersji 1.3 gra informuje o stabilnych wydaniach na GitHubie przy starcie i co
+6 godzin. Ustawienia → Aktualizacje: wyłącz automat lub wybierz Sprawdź teraz.
+Pobieranie wymaga Twojej decyzji. Po weryfikacji pliku wybierz Zapisz grę
+i zainstaluj. Gra zapisze postęp i zamknie się, a aktualizację wykona kreator.
+Instalator nie ma podpisu cyfrowego. Później / anulowanie pozwala grać dalej.
+Internet jest potrzebny tylko do aktualizacji. GitHub otrzymuje dane połączenia,
+w tym IP; imiona i zapisy nie są wysyłane. Wersję 1.3 zainstaluj ręcznie, jeśli
+używasz starszej gry. Aktualizacja wersji przenośnej używa kreatora instalacji.
 W ustawieniach możesz eksportować/importować plik .mahjongbackup. Import sprawdza
 dane i zachowuje poprzednie pliki w podkatalogu Backups. Obecna w kopii historia
 zastępuje historię docelową; brakujące pliki zachowują obecne dane.
@@ -52,7 +68,7 @@ No internet connection or separate runtime installation is required.
 RULES
 Remove two matching free tiles. A tile must have no tile covering it and have
 its entire left or right side open. An exposed front or back does not unlock it.
-Geometry and nature match by identical shape and number. In the classic set,
+Geometry and nature match by identical shape and number. In both traditional sets,
 flowers match flowers, seasons match seasons; a flower never matches a season.
 Every initial deal has a solution, but arbitrary choices may lead to a dead end.
 
@@ -74,11 +90,26 @@ JPEG, BMP, GIF and TIFF up to 32 MB and 80 megapixels. A local copy is retained.
 SAVES, UPDATES AND REMOVAL
 Progress saves automatically to %LOCALAPPDATA%\QuietMahjong.
 Updates and uninstall preserve your game, results, settings and custom image.
+Version 1.3 checks stable GitHub releases at startup and every 6 hours. Disable
+this in Settings or choose Check now. Downloading requires your decision.
+After verification, Save game and install saves progress, closes the game and
+starts the installer wizard. The installer is unsigned. Later resumes play.
+Internet is only needed for updates. GitHub receives connection data, including
+your IP; names and saves are not sent. Install 1.3 manually if you use an older
+version. Portable users can also install through the wizard.
 Settings offers .mahjongbackup export/import. Import validates contents and
 keeps previous files in Backups. Included history replaces destination history;
 missing files preserve current data. Help → Tutorial has three practice boards.
 New game offers an offline daily challenge. Deal code shows an MJ1 code of the
 original deal; paste it on the New game screen to play the same deal.
 Uninstall through Windows Settings → Apps, or the Start menu uninstall shortcut.
+
+FAMILY AND EXPERT BOARDS
+Play with family: 2–4 people on one computer. One shared board, separate scores.
+A matching pair earns 10 points and ends your turn. Passing earns no points.
+Most points wins; ties are shared victories. Undo is disabled in family games.
+Names, scores and turns persist with the game. History can filter by game mode.
+Citadel: 144 tiles, 6 layers. Pagoda: 144 tiles, 8 layers.
+Traditional jade is the second traditional tile set; choose it for a new game.
 
 Copyright (c) 2026 Mahjong contributors. MIT license: LICENSE.

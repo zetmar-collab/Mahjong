@@ -9,12 +9,13 @@ public static class GameActions
         if (!game.Tiles.TryGetValue(a, out var first) || !game.Tiles.TryGetValue(b, out var second)) return false;
         if (!Rules.Remove(game, a, b)) return false;
         game.Moves.Add(new(a, first, b, second));
+        game.Family?.AwardPair();
         if (game.Tiles.Count == 0) game.CompletedAt ??= DateTimeOffset.UtcNow;
         return true;
     }
     public static bool Undo(GameState game)
     {
-        if (game.Tiles.Count == 0 || game.Moves.Count == 0 || game.UndoCount == int.MaxValue) return false;
+        if (game.Family != null || game.Tiles.Count == 0 || game.Moves.Count == 0 || game.UndoCount == int.MaxValue) return false;
         var move = game.Moves[^1];
         game.Tiles.Add(move.A, move.First); game.Tiles.Add(move.B, move.Second);
         game.Moves.RemoveAt(game.Moves.Count - 1); game.UndoCount++;

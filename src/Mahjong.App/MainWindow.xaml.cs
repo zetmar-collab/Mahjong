@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         Vm.ScreenChanged += RenderScreen;
         timer.Tick += (_, _) => Vm.Tick(); timer.Start();
         ApplyTheme(); RenderScreen();
-        Loaded += async (_, _) => { if (smokePath != null) await Smoke.Run(this, Vm); };
+        Loaded += async (_, _) => { if (smokePath != null) await Smoke.Run(this, Vm); else StartUpdateChecks(); };
     }
     TextBlock Text(string value, double size = 16, string brush = "Text") => new() { Text = value, FontSize = Math.Max(12,size), Foreground = R(brush=="Accent"?"AccentText":brush), TextWrapping = TextWrapping.Wrap };
     TextBlock TitleText(string value, double size = 34) => new() { Text = value, FontSize = size, FontFamily = new("Georgia"), Foreground = R("Text"), Margin = new(0, 8, 0, 12) };
@@ -50,7 +50,7 @@ public partial class MainWindow : Window
         if (primary) b.Style=(Style)FindResource("PrimaryButton");
         b.Click += (_, _) => action(); return b;
     }
-    static void Bind(DependencyObject obj, DependencyProperty property, string path) => BindingOperations.SetBinding(obj, property, new Binding(path));
+    static void Bind(DependencyObject obj, DependencyProperty property, string path) => BindingOperations.SetBinding(obj, property, new Binding(path) { Mode = BindingMode.OneWay });
     internal void RefreshAppearance() { ApplyTheme(); RenderScreen(); }
     void ApplyTheme()
     {
@@ -69,6 +69,7 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(FullscreenButton, T("fullscreen"));
         AutomationProperties.SetName(SettingsButton, T("settings"));
         LanguageButton.Content = Vm.Preferences.Language == "pl" ? "PL / EN" : "EN / PL";
+        if(UpdateBanner.Visibility==Visibility.Visible) RenderUpdateBanner();
         ContentArea.Children.Clear(); boardHost = null; tileButtons.Clear();
         switch(Vm.Screen)
         {
@@ -93,17 +94,20 @@ public partial class MainWindow : Window
             left.Children.Add(Text(T(Vm.Game!.LayoutId)+" · "+T(Vm.Game.SetId)+" · "+Vm.Clock,13,"Muted"));
         }
         left.Children.Add(Button(T("newGame"),()=>Vm.Navigate("new"),!Vm.HasSave));
+        left.Children.Add(Button(T("familyMode"),OpenFamilyGame));
+        left.Children.Add(Button(T("daily"),()=>ConfirmReplace(()=>Vm.NewGame(daily:DateOnly.FromDateTime(DateTime.Now)))));
         var links=new System.Windows.Controls.Primitives.UniformGrid{Columns=2,Margin=new(0,12,0,0)};
         links.Children.Add(Button(T("help"),()=>Vm.Navigate("help")));links.Children.Add(Button(T("results"),()=>{Vm.LoadResults();Vm.Navigate("results");}));
         links.Children.Add(Button(T("settings"),OpenSettings));links.Children.Add(Button(T("exit"),Close));left.Children.Add(links);
-        var message=Text("",13,"Muted");Bind(message,TextBlock.TextProperty,nameof(Vm.Status));message.Margin=new(4,20,0,0);left.Children.Add(message);grid.Children.Add(left);
+        var message=Text("",13,"Muted");Bind(message,TextBlock.TextProperty,nameof(Vm.Status));message.Margin=new(4,20,0,0);left.Children.Add(message);
+        grid.Children.Add(new ScrollViewer{Content=left,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalContentAlignment=VerticalAlignment.Center});
         var art=new Grid{Margin=new(12,12,0,12)};Grid.SetColumn(art,1);art.Children.Add(new Border{Background=BoardBackground(),CornerRadius=new(24)});
         var stage=new StackPanel{VerticalAlignment=VerticalAlignment.Center,Margin=new(24)};
         var caption=Text(T("tableCaption").ToUpperInvariant(),12);caption.HorizontalAlignment=HorizontalAlignment.Center;stage.Children.Add(new Border{Child=caption,Background=R("Panel"),Padding=new(14,8,14,8),CornerRadius=new(8),HorizontalAlignment=HorizontalAlignment.Center});
         var canvas=new Canvas{Width=360,Height=310};var deck=Catalog.Deck(Vm.Preferences.Set,144).Distinct().ToArray();
         for(int i=0;i<6;i++)
         {
-            var tile=new TileArt{Symbol=deck[(i*5)%deck.Length]};var box=new Viewbox{Width=90,Height=118,Child=tile,RenderTransform=new RotateTransform(i%2==0?-6:6,45,59)};
+            var tile=new TileArt{Symbol=deck[(i*5)%deck.Length],Jade=Vm.Preferences.Set=="jade"};var box=new Viewbox{Width=90,Height=118,Child=tile,RenderTransform=new RotateTransform(i%2==0?-6:6,45,59)};
             Canvas.SetLeft(box,28+(i%3)*100);Canvas.SetTop(box,40+(i/3)*125);canvas.Children.Add(box);
         }
         stage.Children.Add(new Viewbox{Child=canvas,MaxHeight=390,Margin=new(0,12,0,12)});
@@ -120,6 +124,7 @@ public partial class MainWindow : Window
     void RenderNew()
     {
         var panel=Page(T("choose"),T("chooseSub"));
+        AddFamilySetup(panel);
         var cards=new System.Windows.Controls.Primitives.UniformGrid {Columns=3,Margin=new(0,18,0,6)};
         foreach(var l in Vm.Layouts)
         {
@@ -132,7 +137,7 @@ public partial class MainWindow : Window
                 var r=new Border {Width=scale*1.85,Height=scale*1.85,Background=p.Z==0?new SolidColorBrush(Color.FromRgb(119,159,137)):R("Accent"),BorderBrush=R("Surface"),BorderThickness=new(.5),CornerRadius=new(1)};
                 Canvas.SetLeft(r,10+(p.X-minX)*scale+p.Z*1.5);Canvas.SetTop(r,4+p.Y*scale-p.Z*1.5);thumbnail.Children.Add(r);
             }
-            stack.Children.Add(thumbnail);stack.Children.Add(Text(T(l.Id),19));stack.Children.Add(Text(T(l.Id+"Level")+" · "+Vm.Text.Number(l.Count,"tile")+(Vm.Preferences.Layout==l.Id?" · "+T("chosen"):""),12,"Muted"));
+            stack.Children.Add(thumbnail);stack.Children.Add(Text(T(l.Id),19));stack.Children.Add(Text(T(l.Id+"Level")+" · "+Vm.Text.Number(l.Count,"tile")+" · "+Vm.Text.Number(l.Positions.Max(p=>p.Z)+1,"layer")+(Vm.Preferences.Layout==l.Id?" · "+T("chosen"):""),12,"Muted"));
             var b=Button("",()=>{Vm.Preferences.Layout=l.Id;Vm.SavePreferences();RenderScreen();});b.Content=stack;b.Padding=new(12);b.HorizontalContentAlignment=HorizontalAlignment.Stretch;
             AutomationProperties.SetName(b,T(l.Id)+", "+T(l.Id+"Level"));
             if(Vm.Preferences.Layout==l.Id){b.BorderBrush=R("AccentText");b.Background=R("SelectedSurface");}
@@ -140,12 +145,12 @@ public partial class MainWindow : Window
         }
         panel.Children.Add(cards);
         panel.Children.Add(Text(T("tileSet"),16));
-        var sets=new System.Windows.Controls.Primitives.UniformGrid {Columns=3};
+        var sets=new System.Windows.Controls.Primitives.UniformGrid {Columns=2};
         foreach(var set in Catalog.Sets)
         {
             var s=new StackPanel();s.Children.Add(Text(T(set)+(Vm.Preferences.Set==set?" · "+T("chosen"):""),17));
             var tiles=new StackPanel {Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Center};
-            foreach(int rank in new[]{1,17,29}) { var symbol=set=="classic"? Catalog.Deck(set,144)[(rank*4)%144] : new Symbol(set+rank,set+rank,set,rank); tiles.Children.Add(new Viewbox {Width=36,Height=47,Margin=new(3,6,3,0),Child=new TileArt{Symbol=symbol}}); }
+            foreach(int rank in new[]{1,17,29}) { var symbol=set is "classic" or "jade"? Catalog.Deck(set,144)[(rank*4)%144] : new Symbol(set+rank,set+rank,set,rank); tiles.Children.Add(new Viewbox {Width=42,Height=54,Margin=new(5,6,5,0),Child=new TileArt{Symbol=symbol,Jade=set=="jade"}}); }
             s.Children.Add(tiles);var b=Button("",()=>{Vm.Preferences.Set=set;Vm.SavePreferences();RenderScreen();}); b.Content=s;AutomationProperties.SetName(b,T(set));
             if(Vm.Preferences.Set==set){b.BorderBrush=R("AccentText");b.Background=R("SelectedSurface");}sets.Children.Add(b);
         }
@@ -154,16 +159,16 @@ public partial class MainWindow : Window
         actions.Children.Add(Button(T("back"),()=>Vm.Navigate("menu")));
         var start=Button(T("start"),()=>ConfirmNew(false),true); Bind(start,IsEnabledProperty,nameof(Vm.CanStart));
         actions.Children.Add(start);panel.Children.Add(actions);
-        actions.Children.Insert(1,Button(T("daily"),()=>ConfirmReplace(()=>Vm.NewGame(daily:DateOnly.FromDateTime(DateTime.Now)))));
+        actions.Children.Insert(1,Button(T("daily"),()=>ConfirmReplace(()=>Vm.NewGame(daily:DateOnly.FromDateTime(DateTime.Now),players:NewPlayers))));
         var codePanel=new StackPanel();codePanel.Children.Add(Text(T("dealCodeHelp"),13,"Muted"));
         var code=new TextBox {MaxLength=1024,Margin=new(4,12,4,8),TextWrapping=TextWrapping.Wrap};AutomationProperties.SetName(code,T("dealCode"));codePanel.Children.Add(code);
-        codePanel.Children.Add(Button(T("loadCode"),()=>ConfirmReplace(()=>Vm.NewGame(dealCode:code.Text))));
+        codePanel.Children.Add(Button(T("loadCode"),()=>ConfirmReplace(()=>Vm.NewGame(dealCode:code.Text,players:NewPlayers))));
         panel.Children.Add(new Expander {Header=T("playCode"),Content=codePanel,Margin=new(4,16,4,8),Foreground=R("Text"),FontSize=15});
         var status=Text("",13,"Muted");Bind(status,TextBlock.TextProperty,nameof(Vm.Status));panel.Children.Add(status);
         DockActions(panel,actions);
     }
     void ConfirmNew(bool replay)
-        => ConfirmReplace(()=>Vm.NewGame(replay));
+        => ConfirmReplace(()=>Vm.NewGame(replay,players:NewPlayers));
     void ConfirmReplace(Func<Task> start)
     {
         if(Vm.Busy || confirming)return;
@@ -183,7 +188,7 @@ public partial class MainWindow : Window
     void RenderGame()
     {
         if(Vm.Game==null){Vm.Navigate("menu");return;}
-        var g=new Grid();g.RowDefinitions.Add(new(){Height=new(82)});g.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});g.RowDefinitions.Add(new(){Height=new(36)});g.RowDefinitions.Add(new(){Height=GridLength.Auto});
+        var g=new Grid();g.RowDefinitions.Add(new(){Height=new(82)});g.RowDefinitions.Add(new(){Height=GridLength.Auto});g.RowDefinitions.Add(new(){Height=new(1,GridUnitType.Star)});g.RowDefinitions.Add(new(){Height=GridLength.Auto});g.RowDefinitions.Add(new(){Height=GridLength.Auto});
         var header=new Grid();header.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)});header.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
         var title=new StackPanel();title.Children.Add(TitleText(T(Vm.Game.LayoutId),30));title.Children.Add(Text(T(Vm.Game.LayoutId+"Level")+" / "+T(Vm.Game.SetId)+(Vm.Game.ChallengeDate==null?"":" · "+T("daily")+" "+Vm.Game.ChallengeDate),12,"Muted"));header.Children.Add(title);
         var stats=new StackPanel {Orientation=Orientation.Horizontal,Margin=new(10,0,10,0)};
@@ -192,9 +197,13 @@ public partial class MainWindow : Window
             var s=new StackPanel {Margin=new(25,9,0,0)};s.Children.Add(Text(T(key),12,"Muted"));var value=Text("",22);value.Margin=new(0,7,0,0);Bind(value,TextBlock.TextProperty,path);s.Children.Add(value);stats.Children.Add(s);
         }
         var statsCard=new Border{Child=stats,Background=R("Panel"),CornerRadius=new(12),Padding=new(0,0,16,8),Margin=new(16,0,0,8)};Grid.SetColumn(statsCard,1);header.Children.Add(statsCard);g.Children.Add(header);
-        boardHost=new Grid {ClipToBounds=true};Grid.SetRow(boardHost,1);g.Children.Add(boardHost);
-        var status=Text("",13,"Muted");Bind(status,TextBlock.TextProperty,nameof(Vm.Status));status.VerticalAlignment=VerticalAlignment.Center;Grid.SetRow(status,2);g.Children.Add(status);
-        var bar=new Grid();Grid.SetRow(bar,3);
+        if(Vm.Game.Family!=null){var score=FamilyScoreboard();Grid.SetRow(score,1);g.Children.Add(score);}
+        boardHost=new Grid {ClipToBounds=true};Grid.SetRow(boardHost,2);g.Children.Add(boardHost);
+        var progressPanel=new StackPanel{Margin=new(8,8,8,4)};
+        var progressLabel=Text("",12,"Muted");Bind(progressLabel,TextBlock.TextProperty,nameof(Vm.ProgressLabel));progressPanel.Children.Add(progressLabel);
+        var progress=new ProgressBar{Minimum=0,Maximum=100,Height=5,Margin=new(0,5,0,5),Foreground=R("AccentText"),Background=R("Panel")};Bind(progress,System.Windows.Controls.Primitives.RangeBase.ValueProperty,nameof(Vm.Progress));AutomationProperties.SetName(progress,T("progress"));progressPanel.Children.Add(progress);
+        var status=Text("",13,"Muted");Bind(status,TextBlock.TextProperty,nameof(Vm.Status));progressPanel.Children.Add(status);Grid.SetRow(progressPanel,3);g.Children.Add(progressPanel);
+        var bar=new Grid();Grid.SetRow(bar,4);
         var tools=new WrapPanel {HorizontalAlignment=HorizontalAlignment.Center};
         var undo=Button(T("undo"),()=>{});undo.Command=Vm.UndoCommand;tools.Children.Add(undo);
         var hint=Button("",()=>{});hint.Command=Vm.HintCommand;Bind(hint,ContentControl.ContentProperty,nameof(Vm.HintLabel)); AutomationProperties.SetName(hint,T("hint"));tools.Children.Add(hint);
@@ -210,6 +219,7 @@ public partial class MainWindow : Window
     void DrawBoard()
     {
         if(boardHost==null || Vm.Game==null || Vm.Screen!="game") return;
+        bool pairRemoved=renderedGame==Vm.Game.GameId && tileButtons.Count==Vm.Game.Tiles.Count+2;
         if(!Vm.Paused && !Vm.Busy && renderedBusy==Vm.Busy && Vm.Game.Tiles.Count>0 && renderedGame==Vm.Game.GameId && renderedZoom==Vm.Preferences.Zoom
             && tileButtons.Count==Vm.Game.Tiles.Count && tileButtons.All(t=>t.Value.Content is TileArt art && Vm.Game.Tiles.TryGetValue(t.Key,out var s) && art.Symbol==s))
         {
@@ -235,7 +245,7 @@ public partial class MainWindow : Window
         boardHost.Children.Add(new Border {Background=BoardBackground(),CornerRadius=new(16)});
         if(Vm.Paused || Vm.Game.Tiles.Count==0)
         {
-            var p=new Grid {VerticalAlignment=VerticalAlignment.Center,HorizontalAlignment=HorizontalAlignment.Center,MaxWidth=620,Margin=new(20)};
+            var p=new Grid {VerticalAlignment=VerticalAlignment.Stretch,HorizontalAlignment=HorizontalAlignment.Center,MaxWidth=620,Margin=new(20)};
             p.Children.Add(new Border{Background=R("Surface"),CornerRadius=new(16),Padding=new(20),Child=new ScrollViewer {VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Content=OverlayText()}});boardHost.Children.Add(p);
             if(!Vm.Paused && celebratedGame != Vm.Game.GameId)
             {
@@ -254,7 +264,7 @@ public partial class MainWindow : Window
         foreach(var p in active.OrderBy(p=>p.Z).ThenBy(p=>p.Y).ThenBy(p=>p.X))
         {
             var symbol=Vm.Game.Tiles[p.Id];bool free=Rules.Free(p,active);bool hint=Vm.Highlight is Pair pair && (pair.A==p.Id || pair.B==p.Id);
-            var art=new TileArt {Symbol=symbol,Blocked=!free,Selected=Vm.Selected==p.Id,Hint=hint,Labels=Vm.Preferences.Labels};
+            var art=new TileArt {Symbol=symbol,Blocked=!free,Selected=Vm.Selected==p.Id,Hint=hint,Labels=Vm.Preferences.Labels,Jade=Vm.Game.SetId=="jade"};
             var tile=new Button {Content=art,Padding=new(0),Margin=new(0),Background=Brushes.Transparent,BorderThickness=new(0),Tag=p.Id,IsTabStop=false,ToolTip=SymbolName(symbol)+" · "+T(free?"free":"locked")};
             string name=SymbolName(symbol)+", "+T(free?"free":"locked")+(Vm.Selected==p.Id?", "+T("selected"):"");AutomationProperties.SetName(tile,name);
             Canvas.SetLeft(tile,12+p.X*38-minX+p.Z*5);Canvas.SetTop(tile,12+p.Y*47-minY-p.Z*7);Panel.SetZIndex(tile,p.Z*1000+(int)p.Y*10);
@@ -263,9 +273,10 @@ public partial class MainWindow : Window
         }
         var firstFree=active.FirstOrDefault(p=>Rules.Free(p,active)); if(firstFree!=null)tileButtons[firstFree.Id].IsTabStop=true;
         AddBoardViewport(canvas);
+        if(pairRemoved && !Vm.Busy && !Vm.Preferences.ReducedMotion) ShowPairFeedback();
         if(focused.HasValue && tileButtons.TryGetValue(focused.Value,out var button)) button.Focus();
         if(Vm.Busy) boardHost.Children.Add(new Border{Background=new SolidColorBrush(Color.FromArgb(170,15,32,27)),Child=new TextBlock{Text=T("working"),Foreground=Brushes.White,FontSize=24,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center}});
-        if(Rules.Pairs(Vm.Game).Count==0)
+        if(Vm.AvailablePairs.Count==0)
         {
             var warning=new Border {Background=R("Surface"),CornerRadius=new(9),Padding=new(14),HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Bottom,Margin=new(15)};
             var s=new StackPanel();s.Children.Add(Text(T("noMoves"),20));s.Children.Add(Text(T(Vm.Game.ShuffleUsed?"noMovesEnd":"noMovesShuffle"),13));
@@ -277,12 +288,13 @@ public partial class MainWindow : Window
     {
         var p=new StackPanel();p.Children.Add(TitleText(T(Vm.Paused?"paused":"congratulations"),36));
         if(!Vm.Paused) p.Children.Add(Text(T("won"),22,"Accent"));
+        if(!Vm.Paused && Vm.Game?.Family!=null){p.Children.Add(Text(Vm.FamilyWinner,24,"AccentText"));p.Children.Add(Text(Vm.FamilySummary,18));}
         p.Children.Add(Text(T(Vm.Paused?"pausedSub":"wonSub"),18));
         if(!Vm.Paused)p.Children.Add(Text(Vm.Clock+" · "+T("hints")+": "+Vm.HintCount,16,"Muted"));
         if(!Vm.Paused)
         {
             p.Children.Add(Text(T(Vm.Results.Any(r=>r.GameId==Vm.Game!.GameId)?"resultSaved":"resultSaveError"),14,"Accent"));
-            if(!Vm.ResultSaved)
+            if(!Vm.ResultSaved && Vm.Game?.Family==null)
             {
                 p.Children.Add(Text(T("playerName"),13,"Muted"));
                 var input=new Grid();input.ColumnDefinitions.Add(new(){Width=new(1,GridUnitType.Star)});input.ColumnDefinitions.Add(new(){Width=GridLength.Auto});
@@ -332,6 +344,7 @@ public partial class MainWindow : Window
             var select=Button("",()=>{Vm.Preferences.Background="custom";Vm.SavePreferences();RenderScreen();});select.Content=preview;AutomationProperties.SetName(select,T("customBackground"));if(Vm.Preferences.Background=="custom")select.BorderBrush=R("AccentText");backgrounds.Children.Add(select);
         }
         right.Children.Add(Section(T("background"),backgrounds));
+        right.Children.Add(UpdateSettings());
         var backup=new StackPanel();backup.Children.Add(Text(T("backupHelp"),13,"Muted"));var files=new WrapPanel{Margin=new(0,12,0,0)};files.Children.Add(Button(T("exportData"),ExportData));files.Children.Add(Button(T("importData"),ImportData));backup.Children.Add(files);right.Children.Add(Section(T("dataBackup"),backup));
         page.Children.Add(cols);
         var status=Text("",13,"Muted");Bind(status,TextBlock.TextProperty,nameof(Vm.Status));page.Children.Add(status);
@@ -383,5 +396,5 @@ public partial class MainWindow : Window
             .OrderBy(q=>Math.Sqrt(q.DX*q.DX+q.DY*q.DY)+ (e.Key is Key.Left or Key.Right?Math.Abs(q.DY)*3:Math.Abs(q.DX)*3)).FirstOrDefault();
         if(next!=null)tileButtons[next.P.Id].Focus();e.Handled=true;
     }
-    void Window_Closing(object? sender,CancelEventArgs e){if(Vm.Busy){e.Cancel=true;return;}timer.Stop();Vm.Close();}
+    void Window_Closing(object? sender,CancelEventArgs e){if(Vm.Busy){e.Cancel=true;return;}timer.Stop();StopUpdateChecks();Vm.Close();}
 }

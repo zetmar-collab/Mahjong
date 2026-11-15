@@ -28,7 +28,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public List<GameResult> Results { get; private set; } = [];
     public CustomBackground CustomBackground { get; }
     public bool ResultSaved => Game != null && Results.Any(r => r.GameId == Game.GameId && r.NameConfirmed);
-    public bool CanSaveResult => Game?.Tiles.Count == 0 && !ResultSaved;
+    public bool CanSaveResult => Game?.Tiles.Count == 0 && Game.Family == null && !ResultSaved;
     public Preferences Preferences { get; }
     public Localizer Text { get; }
     public List<Layout> Layouts { get; }
@@ -45,13 +45,21 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public string Clock => GameTime.Format(Game?.Seconds ?? 0);
     public bool CanStart => !Busy;
     public string Remaining => Text.Number(Game?.Tiles.Count ?? 0, "tile");
-    public string PairCount => Text.Number(Game == null ? 0 : Rules.Pairs(Game).Count, "pair");
+    List<Pair>? pairs;
+    public IReadOnlyList<Pair> AvailablePairs => pairs ??= Game == null ? [] : Rules.Pairs(Game);
+    public string PairCount => Text.Number(AvailablePairs.Count, "pair");
+    public double Progress => Game == null ? 0 : 100.0 * (Game.Initial.Count - Game.Tiles.Count) / Game.Initial.Count;
+    public string ProgressLabel => Text["progress"] + " · " + Progress.ToString("0") + "%";
+    public string FamilyTurn => Game?.Family is { } family ? Game.Tiles.Count == 0 ? FamilyWinner : Text["turn"] + ": " + family.Players[family.Turn].Name : "";
+    public string FamilySummary => Game?.Family is { } family ? string.Join("   ·   ", family.Players.Select((p, i) =>
+        (i == family.Turn && Game.Tiles.Count > 0 ? "▶ " : "") + p.Name + ": " + p.Points)) : "";
+    public string FamilyWinner => Game?.Family is { } family ? Text["familyWinners"] + ": " + string.Join(", ", family.Winners.Select(p => p.Name)) : "";
     public string HintCount => (Game?.Hints ?? 0).ToString();
     public string ShuffleLabel => $"{Text["shuffle"]} ({(Game?.ShuffleUsed == true ? 0 : 1)})";
     public string HintLabel => Text["hint"] + "   H";
     public string PauseLabel => Text[Paused ? "resume" : "pause"];
     public bool CanShuffle => Playing && Game?.ShuffleUsed == false;
-    public bool CanUndo => Playing && Game!.Moves.Count > 0;
+    public bool CanUndo => Playing && Game!.Family == null && Game.Moves.Count > 0;
     int hintIndex;
     readonly Stopwatch clock = Stopwatch.StartNew();
     long lastTick;
@@ -99,6 +107,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public void Refresh()
     {
         Notify(nameof(CanStart));
+        foreach (var key in new[] { nameof(Progress), nameof(ProgressLabel), nameof(FamilyTurn), nameof(FamilySummary), nameof(FamilyWinner), nameof(CanUndo), nameof(Busy), nameof(Playing) }) Notify(key);
         foreach (var key in new[] { nameof(Clock), nameof(Remaining), nameof(PairCount), nameof(HintCount), nameof(ShuffleLabel), nameof(HintLabel), nameof(PauseLabel), nameof(Status), nameof(HasSave), nameof(CanShuffle) }) Notify(key);
         CommandManager.InvalidateRequerySuggested();
     }
@@ -119,12 +128,13 @@ public sealed class GameViewModel : INotifyPropertyChanged
         ScreenChanged?.Invoke(); Refresh();
         if (screen == "game") BoardChanged?.Invoke();
     }
-    public async Task NewGame(bool replay = false, string? dealCode = null, DateOnly? daily = null)
+    public async Task NewGame(bool replay = false, string? dealCode = null, DateOnly? daily = null, string[]? players = null)
     {
         if (Busy) return;
         Busy = true; SetStatus("working"); Refresh();
         try
         {
+            var family = players == null ? null : FamilyMatch.Create(players);
             GameState next;
             if (dealCode != null) next = await Task.Run(() => DealCode.Decode(dealCode, Layouts));
             else if (daily != null) next = await Task.Run(() => DealCode.Daily(daily.Value, Layouts));
@@ -132,7 +142,8 @@ public sealed class GameViewModel : INotifyPropertyChanged
             {
                 var old = Game;
                 next = new() { LayoutId = old.LayoutId, SetId = old.SetId, Seed = old.Seed, Positions = old.Positions.ToList(),
-                    Initial = new(old.Initial), Tiles = new(old.Initial), InitialSolution = old.InitialSolution.ToList(), ChallengeDate = old.ChallengeDate };
+                    Initial = new(old.Initial), Tiles = new(old.Initial), InitialSolution = old.InitialSolution.ToList(), ChallengeDate = old.ChallengeDate,
+                    Family = old.Family?.Restart() };
                 next.Solution = next.InitialSolution.ToList();
             }
             else
@@ -142,10 +153,11 @@ public sealed class GameViewModel : INotifyPropertyChanged
                 int seed = Random.Shared.Next();
                 next = await Task.Run(() => Generator.New(layout, set, seed));
             }
-            Game = next; Selected = null; Highlight = null; hintIndex = 0; Paused = false;
+            if (family != null) next.Family = family;
+            Game = next; pairs = null; Selected = null; Highlight = null; hintIndex = 0; Paused = false;
             SetStatus("ready"); Save(); Navigate("game");
         }
-        catch (Exception ex) { Log("generation", ex); SetStatus("generationError"); }
+        catch (Exception ex) { Log("generation", ex); SetStatus(players != null && ex is ArgumentException ? "familyNamesError" : "generationError"); }
         finally { Busy = false; lastTick = clock.ElapsedMilliseconds; Refresh(); BoardChanged?.Invoke(); }
     }
     public void Choose(int id)
@@ -158,7 +170,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
         if (Selected == id) Selected = null;
         else if (Selected is int first && GameActions.Remove(Game, first, id))
         {
-            Selected = null; hintIndex = 0; Play("remove"); CheckState(); Save();
+            pairs = null; Selected = null; hintIndex = 0; Play("remove"); CheckState(); Save();
         }
         else { Selected = id; SetStatus("ready"); Play("select"); }
         Refresh(); BoardChanged?.Invoke();
@@ -166,7 +178,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
     void CheckState()
     {
         if (Game!.Tiles.Count == 0) { Game.CompletedAt ??= DateTimeOffset.UtcNow; Save(); SetStatus("won"); Play("win"); RecordVictory(); }
-        else if (Rules.Pairs(Game).Count == 0) { SetStatus(Game.ShuffleUsed ? "noMovesEnd" : "noMovesShuffle"); Play("stuck"); }
+        else if (AvailablePairs.Count == 0) { SetStatus(Game.ShuffleUsed ? "noMovesEnd" : "noMovesShuffle"); Play("stuck"); }
         else SetStatus("ready");
     }
     void RecordVictory()
@@ -178,15 +190,15 @@ public sealed class GameViewModel : INotifyPropertyChanged
     public void Undo()
     {
         if (!CanUndo || !GameActions.Undo(Game!)) return;
-        Selected = null; Highlight = null; hintIndex = 0;
+        pairs = null; Selected = null; Highlight = null; hintIndex = 0;
         SetStatus("undone"); Save(); Refresh(); BoardChanged?.Invoke();
     }
     public void Hint()
     {
         if (!Playing) return;
-        var pairs = Rules.Pairs(Game!);
-        if (pairs.Count == 0) { CheckState(); return; }
-        Selected = null; Highlight = pairs[hintIndex % pairs.Count]; hintIndex = (hintIndex + 1) % pairs.Count;
+        var legal = AvailablePairs;
+        if (legal.Count == 0) { CheckState(); return; }
+        Selected = null; Highlight = legal[hintIndex % legal.Count]; hintIndex = (hintIndex + 1) % legal.Count;
         if (Game!.Hints < int.MaxValue) Game.Hints++;
         SetStatus("hintStatus"); Play("hint"); Save(); Refresh(); BoardChanged?.Invoke();
     }
@@ -199,7 +211,7 @@ public sealed class GameViewModel : INotifyPropertyChanged
             // Work on a private snapshot: UI never observes a partially changed board.
             var copy = JsonSerializer.Deserialize<GameState>(JsonSerializer.Serialize(Game, Storage.Json), Storage.Json)!;
             bool success = await Task.Run(() => Generator.Shuffle(copy, Random.Shared.Next()));
-            if (success) { Game = copy; Selected = null; Highlight = null; hintIndex = 0; SetStatus("shuffleDone"); Play("shuffle"); Save(); }
+            if (success) { Game = copy; pairs = null; Selected = null; Highlight = null; hintIndex = 0; SetStatus("shuffleDone"); Play("shuffle"); Save(); }
             else SetStatus("shuffleFailed");
         }
         catch (Exception ex) { Log("shuffle", ex); SetStatus("shuffleFailed"); }
@@ -210,6 +222,12 @@ public sealed class GameViewModel : INotifyPropertyChanged
         if (Busy || Screen != "game") return;
         Tick(); Paused = !Paused; lastTick = clock.ElapsedMilliseconds;
         Save(); Refresh(); BoardChanged?.Invoke();
+    }
+    public void PassTurn()
+    {
+        if (!Playing || Game?.Family == null) return;
+        Game.Family.Pass(); Selected = null; Highlight = null;
+        SetStatus("turnPassed"); Save(); Refresh(); BoardChanged?.Invoke();
     }
     public void ChangeLanguage(string language)
     {

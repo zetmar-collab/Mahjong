@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 — 2026-11-15
+
+- Aktualizacje z publicznych wydań GitHuba: sprawdzanie przy starcie i co sześć godzin, powiadomienie bez przerywania gry oraz ręczne sprawdzanie w ustawieniach. Pobieranie i instalacja wymagają decyzji gracza; instalator jest sprawdzany sumą SHA-256, a postęp zapisywany przed zamknięciem gry.
+- Dwa nowe układy po 144 płytki: Cytadela (6 warstw) i Pagoda (8 warstw), z walidacją podparcia i pełnymi rozwiązaniami.
+- Tryb rodzinny 2–4 graczy na jednym komputerze: imiona, kolejka, 10 punktów za parę, przekazanie kolejki, remisy, zapis i wznawianie punktacji oraz rodzinne wyniki w historii. Jedna para kończy turę; cofanie jest wyłączone.
+- Drugi komplet tradycyjny: jadeitowe wykończenie, porcelanowe płytki i odrębne rysunki kół oraz bambusów. Zasady dopasowania pozostają klasyczne.
+- Pasek postępu, krótkie potwierdzenie udanej pary, nowe akcje menu i formularz rodzinnego stołu. Wszystkie teksty PL/EN; ograniczenie animacji obejmuje nowe efekty.
+- Generator indeksuje zależności geometrii przed szukaniem rozwiązania. Widok ponownie wykorzystuje listę legalnych par, zamrożone pędzle i ścieżki symboli. Test porównuje ścieżki seedów z algorytmem 1.2.2.
+
 ## 1.2.2 — 2026-11-12
 
 - Naprawiono pozostającą na planszy nakładkę „Ładowanie nowej planszy…” po uruchomieniu nowej gry. Plansza odświeża się po zakończeniu ładowania i ponownie przyjmuje kliknięcia.
